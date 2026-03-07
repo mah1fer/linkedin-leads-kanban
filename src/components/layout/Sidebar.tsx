@@ -1,22 +1,25 @@
 "use client";
 
-import { LayoutDashboard, Users, MessageSquareText, Settings } from "lucide-react";
+import { LayoutDashboard, Users, SlidersHorizontal, Search } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { TemplatesSidebar } from "@/components/templates/TemplatesSidebar";
+import { KanbanSettingsModal } from "@/components/kanban/KanbanSettingsModal";
+import { SearchModal } from "@/components/leads/SearchModal";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function Sidebar() {
     const leads = useAppStore((state) => state.leads);
     const count = leads.length;
 
-    const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     return (
         <>
-            <aside className="fixed left-0 top-0 bottom-0 w-64 bg-background border-r flex flex-col pt-6 pb-4 z-40">
+            <aside className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar text-sidebar-foreground flex flex-col pt-6 pb-4 z-40">
                 {/* Brand */}
                 <div className="flex items-center gap-3 px-6 mb-8">
-                    <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold">
+                    <div className="w-8 h-8 rounded-xl bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold">
                         in
                     </div>
                     <span className="text-xl font-semibold tracking-tight">Leads</span>
@@ -24,47 +27,38 @@ export function Sidebar() {
 
                 {/* Nav */}
                 <nav className="flex-1 px-4 space-y-2">
-                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-primary text-primary-foreground font-medium">
-                        <LayoutDashboard className="w-5 h-5" />
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                        <LayoutDashboard className="w-5 h-5 opacity-80" />
                         <span>Dashboard</span>
                     </div>
-                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors cursor-pointer">
-                        <Users className="w-5 h-5" />
-                        <span>All Leads</span>
-                        <span className="ml-auto w-6 h-6 rounded-full bg-accent/50 text-xs flex items-center justify-center text-foreground font-medium">
-                            {count}
-                        </span>
-                    </div>
+                    
                     <div
-                        onClick={() => setIsTemplatesOpen(true)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors cursor-pointer"
+                        onClick={() => setIsSearchOpen(true)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer group"
                     >
-                        <MessageSquareText className="w-5 h-5" />
-                        <span>Templates</span>
+                        <Search className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" />
+                        <span>Smart Search</span>
                     </div>
-                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors cursor-pointer">
-                        <Settings className="w-5 h-5" />
-                        <span>Settings</span>
+
+                    <div
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer group"
+                    >
+                        <SlidersHorizontal className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" />
+                        <span>Kanban Settings</span>
                     </div>
                 </nav>
 
-                {/* Footer / Upgrade module replicating the reference UI */}
-                <div className="px-4 mt-auto">
-                    <div className="p-4 rounded-3xl bg-accent text-accent-foreground">
-                        <h4 className="font-semibold mb-1">Upgrade to Pro</h4>
-                        <p className="text-xs text-muted-foreground mb-4 opacity-80">
-                            Export unlimited leads and access all templates.
-                        </p>
-                        <button className="w-full py-2.5 rounded-2xl bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors">
-                            Upgrade Now
-                        </button>
-                    </div>
-                </div>
+
             </aside>
 
-            <TemplatesSidebar
-                isOpen={isTemplatesOpen}
-                onOpenChange={setIsTemplatesOpen}
+            <KanbanSettingsModal
+                isOpen={isSettingsOpen}
+                onOpenChange={setIsSettingsOpen}
+            />
+            <SearchModal
+                isOpen={isSearchOpen}
+                onOpenChange={setIsSearchOpen}
             />
         </>
     );

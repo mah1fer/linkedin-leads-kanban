@@ -26,6 +26,7 @@ export function Board() {
     const leads = useAppStore((state) => state.leads);
     const moveLead = useAppStore((state) => state.moveLead);
     const updateLead = useAppStore((state) => state.updateLead);
+    const deleteLead = useAppStore((state) => state.deleteLead);
     const searchQuery = useAppStore((state) => state.searchQuery);
 
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
@@ -119,6 +120,10 @@ export function Board() {
                                     setSelectedLead(lead);
                                     setIsDrawerOpen(true);
                                 }}
+                                onLeadDelete={(id) => {
+                                    deleteLead(id);
+                                    if (selectedLead?.id === id) setIsDrawerOpen(false);
+                                }}
                             />
                         ))}
                     </SortableContext>
@@ -136,7 +141,7 @@ export function Board() {
                                     />
                                 </div>
                             )}
-                            {activeLead && <LeadCard lead={activeLead} onClick={() => { }} />}
+                            {activeLead && <LeadCard lead={activeLead} onClick={() => { }} onDelete={undefined} />}
                         </DragOverlay>,
                         document.body
                     )}
@@ -148,6 +153,11 @@ export function Board() {
                 onOpenChange={setIsDrawerOpen}
                 onSave={(id, updates) => {
                     updateLead(id, updates);
+                }}
+                onDelete={(id) => {
+                    deleteLead(id);
+                    setIsDrawerOpen(false);
+                    setSelectedLead(null);
                 }}
             />
         </div>

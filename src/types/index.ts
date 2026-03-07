@@ -25,6 +25,7 @@ export interface Lead {
   linkedInUrl: string;
   phones: string[];
   whatsapps: string[];
+  email?: string;
   links: LinkItem[];
   notes: string;
   history: Interaction[];

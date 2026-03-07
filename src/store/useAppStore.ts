@@ -49,6 +49,7 @@ export const mockLeads: Lead[] = [
         linkedInUrl: 'https://linkedin.com/in/joaosilva',
         phones: ['+5511999999999'],
         whatsapps: ['+5511999999999'],
+        email: 'joao.silva@techcorp.com',
         links: [],
         notes: 'Pareceu interessado.',
         history: [],
@@ -68,6 +69,7 @@ export const mockLeads: Lead[] = [
         linkedInUrl: 'https://linkedin.com/in/mariasouza',
         phones: [],
         whatsapps: [],
+        email: 'maria.souza@finbank.com',
         links: [],
         notes: 'Pediu para falar depois.',
         history: [],
@@ -87,6 +89,7 @@ export const mockLeads: Lead[] = [
         linkedInUrl: 'https://linkedin.com/in/carlosmendes',
         phones: [],
         whatsapps: ['+5541988888888'],
+        email: 'carlos.mendes@agrotech.com',
         links: [],
         notes: '',
         history: [],
@@ -106,6 +109,7 @@ export const mockLeads: Lead[] = [
         linkedInUrl: 'https://linkedin.com/in/anacosta',
         phones: [],
         whatsapps: [],
+        email: '',
         links: [],
         notes: 'Orçamento baixo no momento.',
         history: [],
@@ -125,6 +129,7 @@ export const mockLeads: Lead[] = [
         linkedInUrl: 'https://linkedin.com/in/robertolima',
         phones: ['+5521977777777'],
         whatsapps: ['+5521977777777'],
+        email: 'roberto.lima@logisfast.com',
         links: [],
         notes: 'Gostou da proposta V1.',
         history: [],
@@ -139,6 +144,7 @@ interface AppState {
     columns: Column[];
     templates: Template[];
     searchQuery: string;
+    _hasHydrated: boolean;
     setSearchQuery: (query: string) => void;
     seedData: () => void;
     addLead: (lead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -149,6 +155,10 @@ interface AppState {
     updateTemplate: (id: string, updates: Partial<Template>) => void;
     deleteTemplate: (id: string) => void;
     importData: (data: { leads: Lead[]; templates: Template[]; columns?: Column[] }) => void;
+    addColumn: (title: string) => void;
+    updateColumn: (id: string, title: string) => void;
+    deleteColumn: (id: string) => void;
+    reorderColumns: (startIndex: number, endIndex: number) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -158,6 +168,7 @@ export const useAppStore = create<AppState>()(
             columns: defaultColumns,
             templates: [],
             searchQuery: '',
+            _hasHydrated: false,
 
             setSearchQuery: (query) => set({ searchQuery: query }),
 
@@ -224,10 +235,44 @@ export const useAppStore = create<AppState>()(
                     };
                 });
             },
+
+            addColumn: (title) => {
+                const newColumn: Column = { id: `col-${uuidv4()}`, title };
+                set((state) => ({ columns: [...state.columns, newColumn] }));
+            },
+
+            updateColumn: (id, title) => {
+                set((state) => ({
+                    columns: state.columns.map(c => c.id === id ? { ...c, title } : c)
+                }));
+            },
+
+            deleteColumn: (id) => {
+                set((state) => ({
+                    columns: state.columns.filter(c => c.id !== id),
+                    // Optional: move leads from deleted column to the first available column?
+                    // We'll just leave them, or we could move them. Let's filter them out for now.
+                    leads: state.leads.map(l => l.columnId === id && state.columns.length > 1 ? { ...l, columnId: state.columns[0].id } : l)
+                }));
+            },
+
+            reorderColumns: (startIndex, endIndex) => {
+                set((state) => {
+                    const result = Array.from(state.columns);
+                    const [removed] = result.splice(startIndex, 1);
+                    result.splice(endIndex, 0, removed);
+                    return { columns: result };
+                });
+            },
         }),
         {
             name: 'linkedin-kanban-storage',
             storage: createJSONStorage(() => storage),
+            onRehydrateStorage: () => {
+                return () => {
+                    useAppStore.setState({ _hasHydrated: true });
+                };
+            },
         }
     )
 );
