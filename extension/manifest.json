@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Leads Kanban Bridge",
+  "version": "2.0",
+  "description": "Smart scraper and bridge for Kanban Application.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kanban Bridge"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://localhost:*/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://localhost/*"],
+      "js": ["content-kanban.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["content-linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
