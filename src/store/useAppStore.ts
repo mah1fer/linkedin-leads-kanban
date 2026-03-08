@@ -30,6 +30,9 @@ interface AppState {
     updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
     deleteLead: (id: string) => Promise<void>;
     moveLead: (leadId: string, toColumnId: string) => Promise<void>;
+    addColumn: (title: string) => void;
+    updateColumn: (id: string, title: string) => void;
+    deleteColumn: (id: string) => void;
     addTemplate: (template: Omit<Template, 'id'>) => void;
     updateTemplate: (id: string, updates: Partial<Template>) => void;
     deleteTemplate: (id: string) => void;
@@ -205,6 +208,21 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ),
             }));
         }
+    },
+
+    addColumn: (title) => {
+        const id = title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+        set((state) => ({ columns: [...state.columns, { id, title }] }));
+    },
+
+    updateColumn: (id, title) => {
+        set((state) => ({
+            columns: state.columns.map((c) => (c.id === id ? { ...c, title } : c)),
+        }));
+    },
+
+    deleteColumn: (id) => {
+        set((state) => ({ columns: state.columns.filter((c) => c.id !== id) }));
     },
 
     addTemplate: (tempData) => {
