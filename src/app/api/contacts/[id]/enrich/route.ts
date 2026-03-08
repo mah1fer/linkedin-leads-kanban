@@ -6,7 +6,7 @@ export const maxDuration = 60; // segundos — requer Vercel Pro para > 10s
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
