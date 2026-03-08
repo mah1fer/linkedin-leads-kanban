@@ -1,15 +1,20 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
   const body = await request.json() // Expects an array of contacts
 
-  const { data, error } = await supabase
-    .from('contacts')
-    .insert(body)
-    .select()
+  if (!Array.isArray(body) || body.length === 0) {
+    return NextResponse.json({ error: 'Body must be a non-empty array' }, { status: 400 })
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  try {
+    const data = await sql`
+      INSERT INTO contacts ${sql(body)}
+      RETURNING *
+    `
+    return NextResponse.json(data)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }

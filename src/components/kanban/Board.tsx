@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
     DndContext,
@@ -29,11 +29,19 @@ export function Board() {
     const deleteLead = useAppStore((state) => state.deleteLead);
     const searchQuery = useAppStore((state) => state.searchQuery);
 
+    const fetchLeads = useAppStore((state) => state.fetchLeads);
+    const loading = useAppStore((state) => state.loading);
+
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
     const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    // Initial fetch
+    useEffect(() => {
+        fetchLeads();
+    }, [fetchLeads]);
 
     // Filter leads based on search query
     const filteredLeads = useMemo(() => {
@@ -99,6 +107,14 @@ export function Board() {
             moveLead(activeId, overId);
             return;
         }
+    }
+
+    if (loading && leads.length === 0) {
+        return (
+            <div className="flex-1 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
     }
 
     return (

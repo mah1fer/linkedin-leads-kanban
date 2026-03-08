@@ -1,8 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
   const searchParams = request.nextUrl.searchParams
   
   const stage = searchParams.get('stage')
@@ -11,32 +10,54 @@ export async function GET(request: NextRequest) {
   const tags = searchParams.get('tags')
   const enrichmentStatus = searchParams.get('enrichment_status')
 
-  let query = supabase.from('contacts').select('*').order('created_at', { ascending: false })
+  let query = 'SELECT * FROM contacts WHERE 1=1'
+  const params: any[] = []
 
-  if (stage) query = query.eq('stage', stage)
-  if (enrichmentStatus) query = query.eq('enrichment_status', enrichmentStatus)
-  if (minConfidence) query = query.gte('overall_confidence', parseInt(minConfidence))
-  if (tags) query = query.contains('tags', tags.split(','))
+  if (stage) {
+    params.push(stage)
+    query += ` AND stage = $${params.length}`
+  }
+  if (enrichmentStatus) {
+    params.push(enrichmentStatus)
+    query += ` AND enrichment_status = $${params.length}`
+  }
+  if (minConfidence) {
+    params.push(parseInt(minConfidence))
+    query += ` AND overall_confidence >= $${params.length}`
+  }
+  if (tags) {
+    params.push(tags.split(','))
+    query += ` AND tags @> $${params.length}`
+  }
   
   if (search) {
-    query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,title.ilike.%${search}%`)
+    params.push(`%${search}%`)
+    const p = `$${params.length}`
+    query += ` AND (name ILIKE ${p} OR company ILIKE ${p} OR title ILIKE ${p})`
   }
 
-  const { data, error } = await query
+  query += ' ORDER BY created_at DESC'
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  try {
+    const data = await sql.unsafe(query, params)
+    return NextResponse.json(data)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
   const body = await request.json()
+  const { name, title, company, company_url, linkedin_url, tags, stage } = body
 
-  const { data, error } = await supabase
-    .from('contacts')
-    .insert([body])
-    .select()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data[0])
+  try {
+    const data = await sql`
+      INSERT INTO contacts (name, title, company, company_url, linkedin_url, tags, stage)
+      VALUES (${name}, ${title}, ${company}, ${company_url}, ${linkedin_url}, ${tags || []}, ${stage || 'novo'})
+      RETURNING *
+    `
+    return NextResponse.json(data[0])
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }

@@ -16,12 +16,19 @@ import { Button } from "@/components/ui/button"
 import { Search, Filter, Mail, Phone, Zap, UserPlus, Download, LayoutGrid, LayoutList } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { Board } from '@/components/kanban/Board'
+import { ConfidenceBadge } from '@/components/enrich/ConfidenceBadge'
+import { EnrichButton } from '@/components/enrich/EnrichButton'
+import { EnrichProgress } from '@/components/enrich/EnrichProgress'
+import { useAppStore } from '@/store/useAppStore'
 
 export function ContactList() {
-  const [contacts, setContacts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const leads = useAppStore((state) => state.leads);
+  const loading = useAppStore((state) => state.loading);
+  const fetchLeads = useAppStore((state) => state.fetchLeads);
+  const searchQuery = useAppStore((state) => state.searchQuery);
+  const setSearchQuery = useAppStore((state) => state.setSearchQuery);
+
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState('')
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [enriching, setEnriching] = useState(false)
@@ -29,26 +36,21 @@ export function ContactList() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchContacts()
-  }, [searchTerm, filterStage])
+    fetchLeads()
+  }, [fetchLeads, searchQuery, filterStage])
 
-  async function fetchContacts() {
-    setLoading(true)
-    let query = supabase.from('contacts').select('*').order('created_at', { ascending: false })
-
-    if (searchTerm) {
-      query = query.or(`name.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%`)
-    }
-    if (filterStage) {
-      query = query.eq('stage', filterStage)
-    }
-
-    const { data, error } = await query
-    if (!error && data) {
-      setContacts(data)
-    }
-    setLoading(false)
-  }
+  const contacts = leads.filter(l => {
+    if (filterStage && l.columnId !== filterStage) return false;
+    return true; // Search already handled by fetchLeads in the future? 
+    // Actually store doesn't handle search in fetchLeads yet. 
+    // Let's add search to the filter here for now.
+  }).filter(l => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return l.name.toLowerCase().includes(q) || 
+           l.company.toLowerCase().includes(q) || 
+           l.role.toLowerCase().includes(q);
+  });
 
   const toggleSelectAll = () => {
     if (selectedIds.length === contacts.length) {
@@ -86,7 +88,7 @@ export function ContactList() {
       body: JSON.stringify({ contact_ids: selectedIds }),
     })
     setEnriching(false)
-    fetchContacts()
+    fetchLeads()
   }
 
   return (
@@ -128,8 +130,8 @@ export function ContactList() {
           <Input 
             placeholder="Buscar por nome, empresa ou cargo..." 
             className="pl-10 h-11 bg-background/50 border-border/50 focus:ring-primary"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="relative">
@@ -196,15 +198,22 @@ export function ContactList() {
                       <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
                         {contact.name || 'Sem nome'}
                       </span>
-                      <a href={contact.linkedin_url} target="_blank" className="text-xs text-muted-foreground hover:text-blue-400">
+                      <a href={contact.linkedInUrl} target="_blank" className="text-xs text-muted-foreground hover:text-blue-400">
                         LinkedIn Profile
                       </a>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{contact.company || 'N/A'}</span>
-                      <span className="text-xs text-muted-foreground italic">{contact.title || 'Sem cargo'}</span>
+                      <div className="flex items-center gap-2">
+                         <span className="text-sm font-medium">{contact.company || 'N/A'}</span>
+                         <EnrichButton 
+                            contactId={contact.id} 
+                            currentStatus={contact.enrichmentStatus} 
+                            onSuccess={fetchLeads}
+                         />
+                      </div>
+                      <span className="text-xs text-muted-foreground italic">{contact.role || 'Sem cargo'}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -212,28 +221,38 @@ export function ContactList() {
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5 text-xs">
                           <Mail className="w-3.5 h-3.5 text-blue-400" />
-                          <span className={contact.email ? 'text-foreground' : 'text-muted-foreground italic'}>
+                          <span className={contact.email ? 'text-foreground font-medium' : 'text-muted-foreground italic'}>
                             {contact.email || 'Não encontrado'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 text-xs">
                           <Phone className="w-3.5 h-3.5 text-green-400" />
-                          <span className={contact.whatsapp ? 'text-foreground' : 'text-muted-foreground italic'}>
-                            {contact.whatsapp || 'Não encontrado'}
+                          <span className={contact.whatsapps?.[0] || contact.phones?.[0] ? 'text-foreground font-medium' : 'text-muted-foreground italic'}>
+                            {contact.whatsapps?.[0] || contact.phones?.[0] || 'Não encontrado'}
                           </span>
                         </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize text-[10px] px-2 py-0.5">
-                      {contact.enrichment_status}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline" className="capitalize text-[10px] px-2 py-0.5 w-fit">
+                        {contact.enrichmentStatus || 'pending'}
+                      </Badge>
+                      <EnrichProgress status={contact.enrichmentStatus as any} />
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge className={`${getConfidenceColor(contact.overall_confidence)} border font-bold`}>
-                      {contact.overall_confidence}%
-                    </Badge>
+                    <ConfidenceBadge 
+                      label={
+                        !contact.enrichmentScore ? 'ESPECULATIVO'
+                        : contact.enrichmentScore >= 0.80 ? 'ALTO'
+                        : contact.enrichmentScore >= 0.60 ? 'MÉDIO'
+                        : contact.enrichmentScore >= 0.40 ? 'BAIXO'
+                        : 'ESPECULATIVO'
+                      } 
+                      score={contact.enrichmentScore} 
+                    />
                   </TableCell>
                 </TableRow>
               ))

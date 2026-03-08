@@ -1,142 +1,18 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import localforage from 'localforage';
 import { Lead, Template, Column } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
+import { createClient } from '@/lib/supabase/client';
 
-// Custom storage adapter for localforage
-const storage: StateStorage = {
-    getItem: async (name: string): Promise<string | null> => {
-        return (await localforage.getItem<string>(name)) || null;
-    },
-    setItem: async (name: string, value: string): Promise<void> => {
-        await localforage.setItem(name, value);
-    },
-    removeItem: async (name: string): Promise<void> => {
-        await localforage.removeItem(name);
-    },
-};
+const supabase = createClient();
 
 export const defaultColumns: Column[] = [
-    { id: 'col-new', title: 'Novos' },
-    { id: 'col-approach', title: 'Abordagem enviada' },
-    { id: 'col-replied', title: 'Respondeu' },
-    { id: 'col-fup1', title: 'Follow-up 1' },
-    { id: 'col-fup2', title: 'Follow-up 2' },
-    { id: 'col-call', title: 'Agendar call' },
-    { id: 'col-paused', title: 'Sem fit/Pausado' },
-    { id: 'col-closed', title: 'Fechado' },
-];
-
-export const mockTemplates: Template[] = [
-    { id: uuidv4(), name: 'Abordagem A', content: 'Olá {Nome}, vi que você é {Cargo} na {Empresa}. Gostaríamos de conversar sobre...' },
-    { id: uuidv4(), name: 'Abordagem B', content: 'Fala {Nome}! A {Empresa} está com desafios na área? Sou especialista...' },
-    { id: uuidv4(), name: 'Ponte', content: 'Olá {Nome}, quem seria a melhor pessoa na {Empresa} para tratar de TI?' },
-    { id: uuidv4(), name: 'FUP 1', content: 'Oi {Nome}, conseguiu ver minha mensagem anterior sobre...' },
-    { id: uuidv4(), name: 'CFO', content: 'Olá {Nome}, observando a {Empresa}, percebi oportunidades financeiras...' },
-];
-
-export const mockLeads: Lead[] = [
-    {
-        id: uuidv4(),
-        name: 'João Silva',
-        company: 'TechCorp',
-        role: 'CTO',
-        priority: 'Alta',
-        tags: ['TI', 'Decisor'],
-        nextAction: 'Ligar',
-        nextActionDate: new Date().toISOString(),
-        linkedInUrl: 'https://linkedin.com/in/joaosilva',
-        phones: ['+5511999999999'],
-        whatsapps: ['+5511999999999'],
-        email: 'joao.silva@techcorp.com',
-        links: [],
-        notes: 'Pareceu interessado.',
-        history: [],
-        columnId: 'col-new',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    },
-    {
-        id: uuidv4(),
-        name: 'Maria Souza',
-        company: 'FinBank',
-        role: 'CFO',
-        priority: 'Média',
-        tags: ['CFO', 'Ponte'],
-        nextAction: 'Enviar email',
-        nextActionDate: new Date().toISOString(),
-        linkedInUrl: 'https://linkedin.com/in/mariasouza',
-        phones: [],
-        whatsapps: [],
-        email: 'maria.souza@finbank.com',
-        links: [],
-        notes: 'Pediu para falar depois.',
-        history: [],
-        columnId: 'col-approach',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    },
-    {
-        id: uuidv4(),
-        name: 'Carlos Mendes',
-        company: 'AgroTech',
-        role: 'Sócio',
-        priority: 'Alta',
-        tags: ['Sócio', 'Decisor'],
-        nextAction: 'Agendar call',
-        nextActionDate: new Date().toISOString(),
-        linkedInUrl: 'https://linkedin.com/in/carlosmendes',
-        phones: [],
-        whatsapps: ['+5541988888888'],
-        email: 'carlos.mendes@agrotech.com',
-        links: [],
-        notes: '',
-        history: [],
-        columnId: 'col-replied',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    },
-    {
-        id: uuidv4(),
-        name: 'Ana Costa',
-        company: 'EduSmart',
-        role: 'Gerente de TI',
-        priority: 'Baixa',
-        tags: ['TI'],
-        nextAction: 'Follow-up',
-        nextActionDate: new Date().toISOString(),
-        linkedInUrl: 'https://linkedin.com/in/anacosta',
-        phones: [],
-        whatsapps: [],
-        email: '',
-        links: [],
-        notes: 'Orçamento baixo no momento.',
-        history: [],
-        columnId: 'col-paused',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    },
-    {
-        id: uuidv4(),
-        name: 'Roberto Lima',
-        company: 'LogisFast',
-        role: 'Diretor de Operações',
-        priority: 'Alta',
-        tags: ['Decisor'],
-        nextAction: 'Apresentação',
-        nextActionDate: new Date().toISOString(),
-        linkedInUrl: 'https://linkedin.com/in/robertolima',
-        phones: ['+5521977777777'],
-        whatsapps: ['+5521977777777'],
-        email: 'roberto.lima@logisfast.com',
-        links: [],
-        notes: 'Gostou da proposta V1.',
-        history: [],
-        columnId: 'col-closed',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    }
+    { id: 'novo', title: 'Novos' },
+    { id: 'contactado', title: 'Abordagem enviada' },
+    { id: 'respondeu', title: 'Respondeu' },
+    { id: 'fup1', title: 'Follow-up 1' },
+    { id: 'fup2', title: 'Follow-up 2' },
+    { id: 'call', title: 'Agendar call' },
+    { id: 'paused', title: 'Sem fit/Pausado' },
+    { id: 'closed', title: 'Fechado' },
 ];
 
 interface AppState {
@@ -144,135 +20,171 @@ interface AppState {
     columns: Column[];
     templates: Template[];
     searchQuery: string;
-    _hasHydrated: boolean;
+    loading: boolean;
     setSearchQuery: (query: string) => void;
-    seedData: () => void;
-    addLead: (lead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    updateLead: (id: string, updates: Partial<Lead>) => void;
-    deleteLead: (id: string) => void;
-    moveLead: (leadId: string, toColumnId: string) => void;
+    fetchLeads: () => Promise<void>;
+    addLead: (lead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+    updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
+    deleteLead: (id: string) => Promise<void>;
+    moveLead: (leadId: string, toColumnId: string) => Promise<void>;
     addTemplate: (template: Omit<Template, 'id'>) => void;
     updateTemplate: (id: string, updates: Partial<Template>) => void;
     deleteTemplate: (id: string) => void;
-    importData: (data: { leads: Lead[]; templates: Template[]; columns?: Column[] }) => void;
-    addColumn: (title: string) => void;
-    updateColumn: (id: string, title: string) => void;
-    deleteColumn: (id: string) => void;
-    reorderColumns: (startIndex: number, endIndex: number) => void;
 }
 
-export const useAppStore = create<AppState>()(
-    persist(
-        (set, get) => ({
-            leads: [],
-            columns: defaultColumns,
-            templates: [],
-            searchQuery: '',
-            _hasHydrated: false,
+export const useAppStore = create<AppState>((set, get) => ({
+    leads: [],
+    columns: defaultColumns,
+    templates: [],
+    searchQuery: '',
+    loading: false,
 
-            setSearchQuery: (query) => set({ searchQuery: query }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
 
-            seedData: () => set({ leads: mockLeads, templates: mockTemplates, columns: defaultColumns }),
+    fetchLeads: async () => {
+        set({ loading: true });
+        const { data, error } = await supabase
+            .from('contacts')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-            addLead: (leadData) => {
-                const newLead: Lead = {
-                    ...leadData,
-                    id: uuidv4(),
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                };
-                set((state) => ({ leads: [...state.leads, newLead] }));
-            },
-
-            updateLead: (id, updates) => {
-                set((state) => ({
-                    leads: state.leads.map((l) =>
-                        l.id === id ? { ...l, ...updates, updatedAt: new Date().toISOString() } : l
-                    ),
-                }));
-            },
-
-            deleteLead: (id) => {
-                set((state) => ({ leads: state.leads.filter((l) => l.id !== id) }));
-            },
-
-            moveLead: (leadId, toColumnId) => {
-                set((state) => ({
-                    leads: state.leads.map((l) =>
-                        l.id === leadId ? { ...l, columnId: toColumnId, updatedAt: new Date().toISOString() } : l
-                    ),
-                }));
-            },
-
-            addTemplate: (tempData) => {
-                const newTemplate: Template = {
-                    ...tempData,
-                    id: uuidv4(),
-                };
-                set((state) => ({ templates: [...state.templates, newTemplate] }));
-            },
-
-            updateTemplate: (id, updates) => {
-                set((state) => ({
-                    templates: state.templates.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-                }));
-            },
-
-            deleteTemplate: (id) => {
-                set((state) => ({ templates: state.templates.filter((t) => t.id !== id) }));
-            },
-
-            importData: (data) => {
-                set((state) => {
-                    // Merge leads strictly by linkedInUrl (avoiding duplicates based on LinkedIn)
-                    const existingLinks = new Set(state.leads.filter(l => l.linkedInUrl).map(l => l.linkedInUrl));
-                    const newLeads = data.leads.filter(l => !l.linkedInUrl || !existingLinks.has(l.linkedInUrl));
-
-                    return {
-                        leads: [...state.leads, ...newLeads],
-                        templates: data.templates?.length ? data.templates : state.templates,
-                        columns: data.columns?.length ? data.columns : state.columns,
-                    };
-                });
-            },
-
-            addColumn: (title) => {
-                const newColumn: Column = { id: `col-${uuidv4()}`, title };
-                set((state) => ({ columns: [...state.columns, newColumn] }));
-            },
-
-            updateColumn: (id, title) => {
-                set((state) => ({
-                    columns: state.columns.map(c => c.id === id ? { ...c, title } : c)
-                }));
-            },
-
-            deleteColumn: (id) => {
-                set((state) => ({
-                    columns: state.columns.filter(c => c.id !== id),
-                    // Optional: move leads from deleted column to the first available column?
-                    // We'll just leave them, or we could move them. Let's filter them out for now.
-                    leads: state.leads.map(l => l.columnId === id && state.columns.length > 1 ? { ...l, columnId: state.columns[0].id } : l)
-                }));
-            },
-
-            reorderColumns: (startIndex, endIndex) => {
-                set((state) => {
-                    const result = Array.from(state.columns);
-                    const [removed] = result.splice(startIndex, 1);
-                    result.splice(endIndex, 0, removed);
-                    return { columns: result };
-                });
-            },
-        }),
-        {
-            name: 'linkedin-kanban-storage',
-            storage: createJSONStorage(() => storage),
-            onRehydrateStorage: () => {
-                return () => {
-                    useAppStore.setState({ _hasHydrated: true });
-                };
-            },
+        if (!error && data) {
+            // Map Supabase 'contacts' to 'Lead' type
+            const mappedLeads: Lead[] = data.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                company: c.company || '',
+                role: c.title || '',
+                priority: (c.raw_sources?.priority as any) || 'Média',
+                tags: c.tags || [],
+                nextAction: c.raw_sources?.next_action || '',
+                nextActionDate: c.raw_sources?.next_action_date || '',
+                linkedInUrl: c.linkedin_url || '',
+                phones: c.phone ? [c.phone] : [],
+                whatsapps: c.whatsapp ? [c.whatsapp] : [],
+                email: c.email || '',
+                links: [], // Could be mapped from raw_sources if needed
+                notes: c.raw_sources?.notes || '',
+                history: [],
+                columnId: c.stage || 'novo',
+                createdAt: c.created_at,
+                updatedAt: c.created_at, // Supabase might not have updatedAt yet
+                enrichmentStatus: c.enrichment_status,
+                enrichmentScore: c.overall_confidence
+            }));
+            set({ leads: mappedLeads });
         }
-    )
-);
+        set({ loading: false });
+    },
+
+    addLead: async (leadData) => {
+        const { data, error } = await supabase
+            .from('contacts')
+            .insert([{
+                name: leadData.name,
+                title: leadData.role,
+                company: leadData.company,
+                linkedin_url: leadData.linkedInUrl,
+                stage: leadData.columnId || 'novo',
+                email: leadData.email,
+                phone: leadData.phones[0],
+                whatsapp: leadData.whatsapps[0],
+                tags: leadData.tags,
+                raw_sources: {
+                    notes: leadData.notes,
+                    next_action: leadData.nextAction,
+                    next_action_date: leadData.nextActionDate,
+                    priority: leadData.priority
+                }
+            }])
+            .select();
+
+        if (!error && data) {
+            await get().fetchLeads();
+        }
+    },
+
+    updateLead: async (id, updates) => {
+        const lead = get().leads.find(l => l.id === id);
+        if (!lead) return;
+
+        // Prepare update object for Supabase
+        const supabaseUpdate: any = {};
+        if (updates.name !== undefined) supabaseUpdate.name = updates.name;
+        if (updates.role !== undefined) supabaseUpdate.title = updates.role;
+        if (updates.company !== undefined) supabaseUpdate.company = updates.company;
+        if (updates.columnId !== undefined) supabaseUpdate.stage = updates.columnId;
+        if (updates.email !== undefined) supabaseUpdate.email = updates.email;
+        if (updates.linkedInUrl !== undefined) supabaseUpdate.linkedin_url = updates.linkedInUrl;
+
+        // Handle raw_sources updates (merging with existing)
+        const newRawSources = { ...(lead as any).raw_sources || {} };
+        let hasRawUpdate = false;
+        
+        if (updates.notes !== undefined) { newRawSources.notes = updates.notes; hasRawUpdate = true; }
+        if (updates.nextAction !== undefined) { newRawSources.next_action = updates.nextAction; hasRawUpdate = true; }
+        if (updates.nextActionDate !== undefined) { newRawSources.next_action_date = updates.nextActionDate; hasRawUpdate = true; }
+        if (updates.priority !== undefined) { newRawSources.priority = updates.priority; hasRawUpdate = true; }
+
+        if (hasRawUpdate) supabaseUpdate.raw_sources = newRawSources;
+
+        const { error } = await supabase
+            .from('contacts')
+            .update(supabaseUpdate)
+            .eq('id', id);
+
+        if (!error) {
+            // Optimistic update
+            set((state) => ({
+                leads: state.leads.map((l) =>
+                    l.id === id ? { ...l, ...updates, updatedAt: new Date().toISOString() } : l
+                ),
+            }));
+        }
+    },
+
+    deleteLead: async (id) => {
+        const { error } = await supabase
+            .from('contacts')
+            .delete()
+            .eq('id', id);
+
+        if (!error) {
+            set((state) => ({ leads: state.leads.filter((l) => l.id !== id) }));
+        }
+    },
+
+    moveLead: async (leadId, toColumnId) => {
+        const { error } = await supabase
+            .from('contacts')
+            .update({ stage: toColumnId })
+            .eq('id', leadId);
+
+        if (!error) {
+            set((state) => ({
+                leads: state.leads.map((l) =>
+                    l.id === leadId ? { ...l, columnId: toColumnId, updatedAt: new Date().toISOString() } : l
+                ),
+            }));
+        }
+    },
+
+    addTemplate: (tempData) => {
+        // Templates still local for now, or could be moved to DB later
+        const newTemplate: Template = {
+            ...tempData,
+            id: crypto.randomUUID(),
+        };
+        set((state) => ({ templates: [...state.templates, newTemplate] }));
+    },
+
+    updateTemplate: (id, updates) => {
+        set((state) => ({
+            templates: state.templates.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+        }));
+    },
+
+    deleteTemplate: (id) => {
+        set((state) => ({ templates: state.templates.filter((t) => t.id !== id) }));
+    },
+}));

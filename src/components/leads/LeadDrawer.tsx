@@ -31,9 +31,9 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
     const [notes, setNotes] = useState(lead?.notes || "");
     const [nextAction, setNextAction] = useState(lead?.nextAction || "");
     const [nextActionDate, setNextActionDate] = useState(
-        lead?.nextActionDate ? new Date(lead.nextActionDate).toISOString().substring(0, 10) : ""
+        lead?.nextActionDate || ""
     );
-    const [columnId, setColumnId] = useState(lead?.columnId || "");
+    const [columnId, setColumnId] = useState(lead?.columnId || "novo");
     const [email, setEmail] = useState(lead?.email || "");
 
     const [links, setLinks] = useState<LinkItem[]>(lead?.links || []);
@@ -44,12 +44,11 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
         if (lead) {
             setNotes(lead.notes || "");
             setNextAction(lead.nextAction || "");
-            setNextActionDate(
-                lead.nextActionDate ? new Date(lead.nextActionDate).toISOString().substring(0, 10) : ""
-            );
-            setColumnId(lead.columnId || "");
+            setNextActionDate(lead.nextActionDate || "");
+            setColumnId(lead.columnId || "novo");
             setEmail(lead.email || "");
             setLinks(lead.links || []);
+            setIsConfirmingDelete(false);
         }
     }, [lead]);
 
@@ -59,33 +58,16 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
 
         const handler = setTimeout(() => {
             const updates: Partial<Lead> = {};
-            if (notes !== lead.notes) updates.notes = notes;
-            if (nextAction !== lead.nextAction) updates.nextAction = nextAction;
-            if (columnId !== lead.columnId) updates.columnId = columnId;
-            if (email !== lead.email) updates.email = email;
-
-            let newIsoDate = lead.nextActionDate;
-            if (nextActionDate) {
-                try {
-                    const d = new Date(nextActionDate);
-                    if (!isNaN(d.getTime())) {
-                        newIsoDate = d.toISOString();
-                    }
-                } catch (e) {
-                    console.error("Invalid date", nextActionDate);
-                }
-            } else if (nextActionDate === "") {
-                newIsoDate = "";
-            }
-
-            if (newIsoDate !== lead.nextActionDate) {
-                updates.nextActionDate = newIsoDate;
-            }
+            if (notes !== (lead.notes || "")) updates.notes = notes;
+            if (nextAction !== (lead.nextAction || "")) updates.nextAction = nextAction;
+            if (columnId !== (lead.columnId || "novo")) updates.columnId = columnId;
+            if (email !== (lead.email || "")) updates.email = email;
+            if (nextActionDate !== (lead.nextActionDate || "")) updates.nextActionDate = nextActionDate;
 
             if (Object.keys(updates).length > 0) {
                 onSave(lead.id, updates);
             }
-        }, 800);
+        }, 1000);
 
         return () => clearTimeout(handler);
     }, [notes, nextAction, columnId, email, nextActionDate, lead, isOpen, onSave]);

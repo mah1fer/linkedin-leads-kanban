@@ -30,6 +30,9 @@ export interface Lead {
   notes: string;
   history: Interaction[];
   columnId: ColumnId;
+  enrichmentStatus?: 'pending' | 'enriching' | 'completed' | 'failed';
+  enrichmentScore?: number;
+  enrichedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

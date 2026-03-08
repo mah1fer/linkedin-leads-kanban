@@ -1,36 +1,42 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = await createClient()
   const body = await request.json()
   const { id } = await params
 
-  const { data, error } = await supabase
-    .from('contacts')
-    .update(body)
-    .eq('id', id)
-    .select()
+  // Build dynamic update query
+  const keys = Object.keys(body)
+  if (keys.length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data[0])
+  try {
+    const data = await sql`
+      UPDATE contacts 
+      SET ${sql(body, ...keys)}
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return NextResponse.json(data[0])
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = await createClient()
   const { id } = await params
 
-  const { error } = await supabase
-    .from('contacts')
-    .delete()
-    .eq('id', id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  try {
+    await sql`DELETE FROM contacts WHERE id = ${id}`
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }

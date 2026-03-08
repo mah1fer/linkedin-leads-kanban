@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Lead } from "@/types";
 import { Calendar, Briefcase, Building2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EnrichButton } from "@/components/enrich/EnrichButton";
 
 interface LeadCardProps {
     lead: Lead;
@@ -87,18 +88,24 @@ export function LeadCard({ lead, onClick, onDelete }: LeadCardProps) {
                 </div>
             </div>
 
-            {/* Row 2: Role + Company */}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1 truncate">
-                    <Briefcase className="w-3 h-3 shrink-0 opacity-60" />
-                    <span className="truncate">{lead.role || "—"}</span>
-                </span>
-                {lead.company && (
-                    <span className="flex items-center gap-1 truncate shrink-0">
-                        <Building2 className="w-3 h-3 shrink-0 opacity-60" />
-                        <span className="truncate max-w-[90px]">{lead.company}</span>
+            {/* Row 2: Role + Company + Enrich */}
+            <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-3 truncate">
+                    <span className="flex items-center gap-1 truncate">
+                        <Briefcase className="w-3 h-3 shrink-0 opacity-60" />
+                        <span className="truncate">{lead.role || "—"}</span>
                     </span>
-                )}
+                    {lead.company && (
+                        <span className="flex items-center gap-1 truncate shrink-0">
+                            <Building2 className="w-3 h-3 shrink-0 opacity-60" />
+                            <span className="truncate max-w-[90px]">{lead.company}</span>
+                        </span>
+                    )}
+                </div>
+                <EnrichButton 
+                    contactId={lead.id} 
+                    currentStatus={lead.enrichmentStatus}
+                />
             </div>
 
             {/* Row 3: Next Action */}

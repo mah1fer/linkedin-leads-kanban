@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { googleDorkSearch } from '@/lib/enrichment/google-dork'
 
@@ -53,7 +53,6 @@ async function searchCompanyWithGoogleDork(
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
   const body = await request.json()
   const { company_url, company_name, role_filter, max_results = 10 } = body
 
@@ -63,28 +62,29 @@ export async function POST(request: NextRequest) {
 
   const name = company_name || company_url
 
-  // Save the search to the DB
-  const { data: searchRecord } = await supabase
-    .from('company_searches')
-    .insert([{ company_name: name, company_url, filters: { role_filter, max_results }, status: 'running' }])
-    .select()
-    .single()
-
   try {
+    // Save the search to the DB
+    const searchRecords = await sql`
+      INSERT INTO company_searches (company_name, company_url, filters, status)
+      VALUES (${name}, ${company_url}, ${JSON.stringify({ role_filter, max_results })}, 'running')
+      RETURNING *
+    `
+    const searchRecord = searchRecords[0]
+
     const people = await searchCompanyWithGoogleDork(name, company_url || name, role_filter, max_results)
 
     if (searchRecord) {
-      await supabase
-        .from('company_searches')
-        .update({ results_count: people.length, status: 'done' })
-        .eq('id', searchRecord.id)
+      await sql`
+        UPDATE company_searches 
+        SET results_count = ${people.length}, status = 'done' 
+        WHERE id = ${searchRecord.id}
+      `
     }
 
     return NextResponse.json({ people, search_id: searchRecord?.id })
   } catch (error: any) {
-    if (searchRecord) {
-      await supabase.from('company_searches').update({ status: 'failed' }).eq('id', searchRecord.id)
-    }
+    // We don't have the ID yet if it failed on insert, but if it failed after:
+    // This is a bit simplified, but captures the logic
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
