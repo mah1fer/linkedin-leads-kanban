@@ -21,8 +21,11 @@ interface AppState {
     templates: Template[];
     searchQuery: string;
     loading: boolean;
+    _hasHydrated: boolean;
     setSearchQuery: (query: string) => void;
     fetchLeads: () => Promise<void>;
+    seedData: () => Promise<void>;
+    importData: (data: { leads: Lead[]; templates?: Template[]; columns?: Column[] }) => Promise<void>;
     addLead: (lead: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
     deleteLead: (id: string) => Promise<void>;
@@ -38,8 +41,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     templates: [],
     searchQuery: '',
     loading: false,
+    _hasHydrated: true,
 
     setSearchQuery: (query) => set({ searchQuery: query }),
+
+    seedData: async () => {
+        await get().fetchLeads();
+    },
+
+    importData: async (data) => {
+        if (data.templates) {
+            set({ templates: data.templates });
+        }
+        if (data.columns) {
+            set({ columns: data.columns });
+        }
+        for (const lead of data.leads) {
+            await get().addLead({
+                name: lead.name,
+                company: lead.company,
+                role: lead.role,
+                priority: lead.priority,
+                tags: lead.tags,
+                nextAction: lead.nextAction,
+                nextActionDate: lead.nextActionDate,
+                linkedInUrl: lead.linkedInUrl,
+                phones: lead.phones,
+                whatsapps: lead.whatsapps,
+                email: lead.email,
+                links: lead.links,
+                notes: lead.notes,
+                history: lead.history,
+                columnId: lead.columnId,
+                enrichmentStatus: lead.enrichmentStatus,
+                enrichmentScore: lead.enrichmentScore,
+            });
+        }
+    },
 
     fetchLeads: async () => {
         set({ loading: true });

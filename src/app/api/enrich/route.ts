@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { EnrichmentOrchestrator } from '@/lib/enrichment/orchestrator';
-import { EnrichmentContext } from '@/lib/enrichment/types';
+import type { LeadInput } from '@/lib/enrichment/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,51 +21,51 @@ export async function POST(request: NextRequest) {
 
       const lead = leads[0];
 
-      // 2. Prepare Context
-      const [firstName, ...lastNameParts] = (lead.name || '').split(' ');
-      const ctx: EnrichmentContext = {
-        leadId: lead.id,
+      // 2. Prepare Input
+      const input: LeadInput = {
+        id: lead.id,
         name: lead.name,
-        firstName,
-        lastName: lastNameParts.join(' '),
         company: lead.company,
-        companyUrl: lead.company_url || '',
-        linkedInUrl: lead.linkedin_url || '',
+        title: lead.title,
+        linkedinUrl: lead.linkedin_url || '',
+        domain: lead.email ? lead.email.split('@')[1] : undefined,
       };
 
       // 3. Update Status to Running
-      await sql`UPDATE contacts SET enrichment_status = 'running' WHERE id = ${id}`;
+      await sql`UPDATE contacts SET enrichment_status = 'running', updated_at = NOW() WHERE id = ${id}`;
 
       // 4. Run Orchestrator
-      const result = await orchestrator.enrich(ctx);
+      const result = await orchestrator.enrich(input);
 
       // 5. Update Lead with Results
-      const bestEmail = result.emails[0]?.value || lead.email;
+      const bestEmail = result.emails[0]?.email || lead.email;
       const emailConfidence = result.emails[0]?.confidence || lead.email_confidence;
-      const bestPhone = result.phones[0]?.value || lead.phone;
-      const bestWhatsApp = result.phones[0]?.value || lead.whatsapp;
-      const overallScore = result.overallScore;
+      const bestPhone = result.phones[0]?.phone || lead.phone;
+      const bestWhatsApp = result.phones.find(p => p.hasWhatsApp)?.phone || lead.whatsapp;
+      const overallScore = result.enrichmentScore;
 
       await sql`
-        UPDATE contacts 
-        SET 
+        UPDATE contacts
+        SET
           email = ${bestEmail},
           email_confidence = ${emailConfidence},
           phone = ${bestPhone},
           whatsapp = ${bestWhatsApp},
-          overall_confidence = ${overallScore},
+          overall_confidence = ${Math.round(overallScore * 100)},
           enrichment_status = 'completed',
+          enriched_at = NOW(),
+          updated_at = NOW(),
           raw_sources = ${sql.json(result as any)}
         WHERE id = ${id}
       `;
-      
+
       results.push({ id, status: 'completed', score: overallScore });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       processed: results.length,
-      data: results 
+      data: results
     });
 
   } catch (error: any) {

@@ -54,3 +54,11 @@ export interface EnrichmentPlugin {
   name: PluginSource;
   run(input: LeadInput): Promise<EnrichmentResult>;
 }
+
+export interface EnrichmentContext extends LeadInput {
+  leadId: string;
+  firstName: string;
+  lastName: string;
+  companyUrl: string;
+  linkedInUrl: string;
+}

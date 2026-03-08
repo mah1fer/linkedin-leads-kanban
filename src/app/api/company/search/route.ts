@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { googleDorkSearch } from '@/lib/enrichment/google-dork'
+import { googleDorkSearch } from '@/lib/enrichment/plugins/google-dork'
 
 interface FoundPerson {
   name: string
