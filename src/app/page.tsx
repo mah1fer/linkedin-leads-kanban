@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { Board } from "@/components/kanban/Board";
+import { ContactList } from "@/components/contacts/ContactList";
 
 export default function Home() {
   return (
@@ -8,7 +8,7 @@ export default function Home() {
       <Sidebar />
       <div className="flex-1 flex flex-col pl-64 w-full h-full relative">
         <Header />
-        <Board />
+        <ContactList />
       </div>
     </main>
   );
