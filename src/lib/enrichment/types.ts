@@ -32,7 +32,8 @@ export type PluginSource =
   | 'cnpj'
   | 'whatsapp_check'
   | 'profile_direct'
-  | 'permutation';
+  | 'permutation'
+  | 'website_scraper';
 
 export interface EnrichmentResult {
   emails: EmailCandidate[];

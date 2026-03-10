@@ -86,6 +86,17 @@ try {
             }, "*");
             sendResponse({ status: "ok" });
         }
+
+        // Bulk push from company page
+        if (request.type === "KANBAN_EXT_BULK_PUSH") {
+            console.log("[Kanban Bridge] Bulk push received:", request.leads?.length, "leads");
+            window.postMessage({
+                type: "KANBAN_EXT_BULK_PUSH",
+                leads: request.leads,
+                enrich: request.enrich,
+            }, "*");
+            sendResponse({ status: "ok" });
+        }
     });
 } catch (err) {
     console.warn("[Kanban Bridge] Failed to add onMessage listener:", err.message);

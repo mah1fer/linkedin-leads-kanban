@@ -364,9 +364,190 @@ function injectPanel(info) {
     });
 }
 
+// ─── Company Page: extrai funcionários visíveis ────────────────────────────────
+
+function extractCompanyEmployees() {
+    const people = [];
+    const seen = new Set();
+
+    // Selectors para a seção "People" de páginas de empresa
+    const selectors = [
+        '.org-people-profile-card',
+        '.org-grid__core-rail li',
+        'li.artdeco-list__item[class*="people"]',
+        '[data-member-id]',
+    ];
+
+    document.querySelectorAll(selectors.join(', ')).forEach(card => {
+        const nameEl = card.querySelector([
+            '.artdeco-entity-lockup__title span[aria-hidden="true"]',
+            '.member-name',
+            'span.artdeco-entity-lockup__title',
+            '.org-people-profile-card__profile-title',
+            'h3 span[aria-hidden="true"]',
+        ].join(', '));
+
+        const roleEl = card.querySelector([
+            '.artdeco-entity-lockup__subtitle',
+            '.org-people-profile-card__profile-position',
+            '.org-people-profile-card__profile-info',
+            'p.artdeco-entity-lockup__subtitle',
+        ].join(', '));
+
+        const linkEl = card.querySelector('a[href*="/in/"]');
+
+        const name = nameEl?.innerText?.trim().split('\n')[0] || '';
+        const url = linkEl ? (linkEl.href || '').split('?')[0] : '';
+        const role = roleEl?.innerText?.trim().split('\n')[0] || '';
+
+        if (name && !seen.has(name)) {
+            seen.add(name);
+            const companyName = document.querySelector(
+                '.org-top-card-summary__title, h1.org-top-card-summary__title, h1[class*="title"]'
+            )?.innerText?.trim() || '';
+            people.push({ name, role, linkedin_url: url, company: companyName });
+        }
+    });
+
+    return people;
+}
+
+const COMPANY_PANEL_ID = 'kanban-company-panel';
+
+function injectCompanyPanel() {
+    if (document.getElementById(COMPANY_PANEL_ID + '-host')) return;
+
+    const host = document.createElement('div');
+    host.id = COMPANY_PANEL_ID + '-host';
+    host.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+    document.body.appendChild(host);
+
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        .fab{background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:#fff;border:none;border-radius:16px;padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(124,58,237,.45);transition:all .2s;letter-spacing:.01em}
+        .fab:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(124,58,237,.55)}
+        .panel{background:#fff;border-radius:16px;padding:16px;width:300px;box-shadow:0 8px 40px rgba(0,0,0,.15);border:1px solid rgba(124,58,237,.15)}
+        .ptitle{font-size:14px;font-weight:700;color:#111827;margin-bottom:4px}
+        .psub{font-size:11px;color:#6b7280;margin-bottom:12px}
+        .count{font-size:12px;color:#7c3aed;font-weight:700;margin-bottom:12px;padding:8px;background:#f5f3ff;border-radius:8px;text-align:center}
+        .actions{display:flex;flex-direction:column;gap:8px}
+        .btn{width:100%;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+        .btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
+        .btn-primary:hover{opacity:.88}
+        .btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}
+        .btn-secondary:hover{background:#ebe9f5;border-color:#c4b5fd;color:#7c3aed}
+        .btn:disabled{opacity:.5;cursor:not-allowed}
+        .status{font-size:11px;color:#6b7280;text-align:center;margin-top:8px;min-height:14px}
+        .close{position:absolute;top:12px;right:12px;cursor:pointer;color:#9ca3af;font-size:18px;line-height:1;background:none;border:none;padding:2px}
+    </style>
+    <div id="root"></div>`;
+
+    let people = [];
+    let panelOpen = false;
+
+    function renderFab() {
+        shadow.getElementById('root').innerHTML = `
+            <button class="fab" id="fab-btn">
+                🏢 Capturar Funcionários
+            </button>`;
+        shadow.getElementById('fab-btn').addEventListener('click', openPanel);
+    }
+
+    function openPanel() {
+        panelOpen = true;
+        people = extractCompanyEmployees();
+        renderPanel();
+    }
+
+    function renderPanel() {
+        const companyName = document.querySelector(
+            '.org-top-card-summary__title, h1.org-top-card-summary__title'
+        )?.innerText?.trim() || 'esta empresa';
+
+        shadow.getElementById('root').innerHTML = `
+            <div class="panel" style="position:relative">
+                <button class="close" id="close-btn">×</button>
+                <div class="ptitle">🏢 ${companyName}</div>
+                <div class="psub">Funcionários visíveis na página</div>
+                <div class="count" id="people-count">${people.length} pessoa(s) encontrada(s)</div>
+                <div class="actions">
+                    <button class="btn btn-secondary" id="refresh-btn">🔄 Reler Página</button>
+                    <button class="btn btn-primary" id="add-btn" ${people.length === 0 ? 'disabled' : ''}>
+                        💾 Adicionar ${people.length} ao Kanban
+                    </button>
+                    <button class="btn btn-primary" id="enrich-btn" ${people.length === 0 ? 'disabled' : ''}>
+                        ⚡ Adicionar + Enriquecer
+                    </button>
+                </div>
+                <div class="status" id="panel-status"></div>
+            </div>`;
+
+        shadow.getElementById('close-btn').addEventListener('click', () => {
+            panelOpen = false;
+            renderFab();
+        });
+
+        shadow.getElementById('refresh-btn').addEventListener('click', () => {
+            people = extractCompanyEmployees();
+            shadow.getElementById('people-count').textContent = `${people.length} pessoa(s) encontrada(s)`;
+            shadow.getElementById('add-btn').disabled = people.length === 0;
+            shadow.getElementById('enrich-btn').disabled = people.length === 0;
+        });
+
+        const addHandler = (enrich) => async () => {
+            const status = shadow.getElementById('panel-status');
+            const addBtn = shadow.getElementById('add-btn');
+            const enrichBtn = shadow.getElementById('enrich-btn');
+            addBtn.disabled = true;
+            enrichBtn.disabled = true;
+            status.textContent = 'Enviando ao Kanban...';
+
+            try {
+                const msg = enrich
+                    ? { action: 'BULK_PUSH_LEADS_ENRICH', leads: people }
+                    : { action: 'BULK_PUSH_LEADS', leads: people };
+                chrome.runtime.sendMessage(msg, (resp) => {
+                    if (chrome.runtime.lastError || resp?.status === 'error') {
+                        status.textContent = '❌ Erro — Kanban aberto?';
+                        addBtn.disabled = false;
+                        enrichBtn.disabled = false;
+                    } else {
+                        status.textContent = `✅ ${people.length} pessoas salvas!`;
+                    }
+                });
+            } catch (err) {
+                status.textContent = '❌ Extensão desconectada';
+                addBtn.disabled = false;
+                enrichBtn.disabled = false;
+            }
+        };
+
+        shadow.getElementById('add-btn').addEventListener('click', addHandler(false));
+        shadow.getElementById('enrich-btn').addEventListener('click', addHandler(true));
+    }
+
+    renderFab();
+}
+
 // ─── Main Init ─────────────────────────────────────────────────────────────────
 async function init() {
-    if (!window.location.href.includes('/in/')) return;
+    const url = window.location.href;
+
+    // Página de empresa
+    if (url.includes('linkedin.com/company/')) {
+        await waitForElement(
+            '.org-top-card-summary__title, h1[class*="org-top-card"], .org-people-profile-card',
+            7000
+        );
+        await new Promise(r => setTimeout(r, 1500));
+        injectCompanyPanel();
+        return;
+    }
+
+    // Página de perfil
+    if (!url.includes('/in/')) return;
 
     await waitForElement('h1.text-heading-xlarge, h1', 7000);
     await new Promise(r => setTimeout(r, 1200));
@@ -384,6 +565,8 @@ new MutationObserver(() => {
         _lastUrl = location.href;
         const old = document.getElementById(PANEL_ID + '-host');
         if (old) old.remove();
+        const oldCompany = document.getElementById(COMPANY_PANEL_ID + '-host');
+        if (oldCompany) oldCompany.remove();
         setTimeout(init, 1200);
     }
 }).observe(document, { subtree: true, childList: true });

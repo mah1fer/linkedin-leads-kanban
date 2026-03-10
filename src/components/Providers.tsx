@@ -4,6 +4,26 @@ import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useAppStore } from "@/store/useAppStore";
 
+function buildLeadFromExtension(lead: Record<string, unknown>) {
+    return {
+        name: (lead.name as string) || "",
+        role: (lead.role as string) || "",
+        company: (lead.company as string) || "",
+        linkedInUrl: (lead.linkedInUrl as string) || (lead.linkedinUrl as string) || (lead.linkedin_url as string) || "",
+        email: (lead.email as string) || "",
+        phones: Array.isArray(lead.phones) ? lead.phones as string[] : [],
+        whatsapps: Array.isArray(lead.whatsapps) ? lead.whatsapps as string[] : [],
+        columnId: "novo",
+        priority: "Média" as const,
+        notes: "",
+        tags: [],
+        nextAction: "",
+        nextActionDate: "",
+        links: Array.isArray(lead.links) ? lead.links as { id: string; label: string; url: string }[] : [],
+        history: [],
+    };
+}
+
 function ExtensionBridge() {
     const addLead = useAppStore((state) => state.addLead);
 
@@ -11,31 +31,29 @@ function ExtensionBridge() {
         function handleMessage(event: MessageEvent) {
             if (event.source !== window) return;
 
-            // Lead pushed directly from the LinkedIn panel extension
+            // Single lead pushed from LinkedIn profile panel
             if (event.data?.type === "KANBAN_EXT_PUSH" && event.data?.lead) {
-                const lead = event.data.lead;
-                addLead({
-                    name: lead.name || "",
-                    role: lead.role || "",
-                    company: lead.company || "",
-                    linkedInUrl: lead.linkedInUrl || lead.linkedinUrl || "",
-                    email: lead.email || "",
-                    phones: Array.isArray(lead.phones) ? lead.phones : [],
-                    whatsapps: Array.isArray(lead.whatsapps) ? lead.whatsapps : [],
-                    columnId: "novo",
-                    priority: "Média",
-                    notes: "",
-                    tags: [],
-                    nextAction: "",
-                    nextActionDate: "",
-                    links: Array.isArray(lead.links) ? lead.links : [],
-                    history: [],
-                });
+                addLead(buildLeadFromExtension(event.data.lead as Record<string, unknown>));
+            }
+
+            // Bulk leads pushed from LinkedIn company page panel
+            if (event.data?.type === "KANBAN_EXT_BULK_PUSH" && Array.isArray(event.data?.leads)) {
+                const leads = event.data.leads as Record<string, unknown>[];
+                const enrich: boolean = event.data.enrich === true;
+
+                leads.forEach(lead => addLead(buildLeadFromExtension(lead)));
+
+                // Se solicitado enriquecimento, dispara em background após salvar
+                if (enrich && leads.length > 0) {
+                    // Pequeno delay para o store persistir antes de enriquecer
+                    setTimeout(() => {
+                        window.postMessage({ type: "KANBAN_EXT_BULK_ENRICH_REQUEST", count: leads.length }, "*");
+                    }, 800);
+                }
             }
         }
 
         window.addEventListener("message", handleMessage);
-        // Announce the app is ready for the extension
         window.postMessage({ type: "KANBAN_EXT_PING" }, "*");
 
         return () => window.removeEventListener("message", handleMessage);

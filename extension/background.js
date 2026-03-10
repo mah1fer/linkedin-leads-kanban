@@ -81,6 +81,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // ── Bulk push from company page ───────────────────────────────────────────
+    if (request.action === "BULK_PUSH_LEADS" || request.action === "BULK_PUSH_LEADS_ENRICH") {
+        const enrich = request.action === "BULK_PUSH_LEADS_ENRICH";
+        getKanbanUrl().then((appUrl) => {
+            const patterns = buildTabPatterns(appUrl);
+            chrome.tabs.query({ url: patterns }, (tabs) => {
+                if (!tabs || tabs.length === 0) {
+                    sendResponse({ status: "error", message: "Kanban not open" });
+                    return;
+                }
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: "KANBAN_EXT_BULK_PUSH",
+                        leads: request.leads,
+                        enrich,
+                    });
+                });
+                sendResponse({ status: "ok" });
+            });
+        });
+        return true;
+    }
+
     // ── Results coming back from LinkedIn content script ──────────────────────
     if (request.action === "LINKEDIN_RESULTS") {
         console.log("[Kanban SW] Forwarding LINKEDIN_RESULTS to app...");
