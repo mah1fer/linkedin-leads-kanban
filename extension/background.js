@@ -1,3 +1,28 @@
+// background.js — Service worker for Kanban Bridge extension
+//
+// The Kanban app URL is configurable via the popup (stored in chrome.storage.local).
+// Default: the Vercel production URL.
+const DEFAULT_KANBAN_URL = "https://linkedin-leads-kanban.vercel.app";
+
+function getKanbanUrl() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get("kanbanUrl", (data) => {
+            resolve(data.kanbanUrl || DEFAULT_KANBAN_URL);
+        });
+    });
+}
+
+// Build URL match patterns for chrome.tabs.query from the configured app URL.
+// Always includes localhost and 127.0.0.1 for development.
+function buildTabPatterns(appUrl) {
+    const patterns = ["*://localhost/*", "*://127.0.0.1/*"];
+    try {
+        const u = new URL(appUrl);
+        patterns.push(`${u.protocol}//${u.host}/*`);
+    } catch (_) { /* invalid URL */ }
+    return patterns;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log("[Kanban SW] Message received:", request.action);
 
@@ -5,19 +30,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "PUSH_LEAD_TO_KANBAN") {
         console.log("[Kanban SW] PUSH_LEAD_TO_KANBAN:", request.lead);
 
-        chrome.tabs.query({ url: ["*://localhost/*", "*://127.0.0.1/*"] }, (tabs) => {
-            if (!tabs || tabs.length === 0) {
-                console.warn("[Kanban SW] No Kanban tab found at localhost.");
-                sendResponse({ status: "error", message: "Kanban not open" });
-                return;
-            }
-            tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, {
-                    type: "KANBAN_EXT_PUSH",
-                    lead: request.lead
+        getKanbanUrl().then((appUrl) => {
+            const patterns = buildTabPatterns(appUrl);
+            chrome.tabs.query({ url: patterns }, (tabs) => {
+                if (!tabs || tabs.length === 0) {
+                    console.warn("[Kanban SW] No Kanban tab found. URL configured:", appUrl);
+                    sendResponse({ status: "error", message: "Kanban not open" });
+                    return;
+                }
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: "KANBAN_EXT_PUSH",
+                        lead: request.lead
+                    });
                 });
+                sendResponse({ status: "ok" });
             });
-            sendResponse({ status: "ok" });
         });
 
         return true; // async
@@ -57,12 +85,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "LINKEDIN_RESULTS") {
         console.log("[Kanban SW] Forwarding LINKEDIN_RESULTS to app...");
 
-        chrome.tabs.query({ url: ["*://localhost/*", "*://127.0.0.1/*"] }, (tabs) => {
-            tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, {
-                    type: "KANBAN_EXT_RESPONSE",
-                    id: request.requestId,
-                    payload: request.data
+        getKanbanUrl().then((appUrl) => {
+            const patterns = buildTabPatterns(appUrl);
+            chrome.tabs.query({ url: patterns }, (tabs) => {
+                if (!tabs || tabs.length === 0) {
+                    console.warn("[Kanban SW] No Kanban tab found to send results. URL configured:", appUrl);
+                    return;
+                }
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: "KANBAN_EXT_RESPONSE",
+                        id: request.requestId,
+                        payload: request.data
+                    });
                 });
             });
         });
