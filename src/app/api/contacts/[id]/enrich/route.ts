@@ -30,14 +30,18 @@ export async function POST(
     // Extrai domínio do email existente (se houver)
     const domain = contact.email ? contact.email.split('@')[1] : undefined;
 
-    // Extrai URLs pessoais do campo raw_sources (links adicionados ao perfil)
+    // Extrai URLs pessoais do campo raw_sources (links salvos no perfil)
     let personalSiteUrls: string[] = [];
     try {
       const raw = contact.raw_sources || {};
       const links: any[] = raw.links || [];
       personalSiteUrls = links
         .map((l: any) => l.url || l)
-        .filter((url: string) => typeof url === 'string' && url.startsWith('http') && !url.includes('linkedin.com'));
+        .filter((url: string) =>
+          typeof url === 'string' &&
+          url.startsWith('http') &&
+          !url.includes('linkedin.com')
+        );
     } catch { /* ignora erro de parsing */ }
 
     const orchestrator = new EnrichmentOrchestrator();
@@ -51,73 +55,109 @@ export async function POST(
       personalSiteUrls,
     });
 
+    // ── Seleciona os melhores candidatos ────────────────────────────────────
     const primaryEmail = enriched.emails[0];
-    // Prioriza: móvel com WhatsApp → qualquer móvel → qualquer telefone
+
+    // Ordem de preferência: celular com WA > qualquer celular > qualquer número
     const primaryPhone =
       enriched.phones.find((p: any) => p.hasWhatsApp && p.type === 'mobile') ||
       enriched.phones.find((p: any) => p.type === 'mobile') ||
       enriched.phones[0];
 
+    // Melhor candidato WhatsApp (celular confirmado com WA)
     const whatsappPhone = enriched.phones.find((p: any) => p.hasWhatsApp);
 
+    // ── Serializa todos os candidatos para salvar no raw_sources ─────────────
+    const currentRaw = contact.raw_sources || {};
+    const updatedRaw = {
+      ...currentRaw,
+      // Todos os telefones enriquecidos com metadados (para o drawer exibir)
+      enrichedPhones: enriched.phones.map((p: any) => ({
+        phone: p.phone,
+        confidence: Math.round(p.confidence * 100),
+        hasWhatsApp: p.hasWhatsApp,
+        type: p.type,
+        sources: p.sources,
+      })),
+      // Todos os emails enriquecidos com metadados
+      enrichedEmails: enriched.emails.map((e: any) => ({
+        email: e.email,
+        confidence: Math.round(e.confidence * 100),
+        verified: e.verified,
+        sources: e.sources,
+      })),
+    };
+
+    // ── Salva no Supabase ────────────────────────────────────────────────────
     await supabase
       .from('contacts')
       .update({
-        email: primaryEmail?.email || contact.email,
-        phone: primaryPhone?.phone || contact.phone,
-        whatsapp: whatsappPhone?.phone || primaryPhone?.phone || contact.whatsapp || null,
-        whatsapp_source: whatsappPhone
-          ? whatsappPhone.sources.join(',')
-          : (primaryPhone ? primaryPhone.sources.join(',') : null),
-        email_confidence: Math.round((primaryEmail?.confidence || 0) * 100),
-        phone_confidence: Math.round((primaryPhone?.confidence || 0) * 100),
+        // Só atualiza email/phone se o enriquecimento encontrou algo
+        ...(primaryEmail && { email: primaryEmail.email }),
+        ...(primaryPhone && { phone: primaryPhone.phone }),
+        // NUNCA sobrescreve whatsapp manual com fallback de outro número
+        // Só atualiza se encontrou explicitamente um número com WhatsApp
+        ...(whatsappPhone && { whatsapp: whatsappPhone.phone }),
+        ...(whatsappPhone && { whatsapp_source: whatsappPhone.sources.join(',') }),
+        email_confidence: primaryEmail ? Math.round(primaryEmail.confidence * 100) : (contact.email_confidence || 0),
+        phone_confidence: primaryPhone ? Math.round(primaryPhone.confidence * 100) : (contact.phone_confidence || 0),
         enrichment_status: 'completed',
-        // Armazena como int 0-100 para bater com o schema
         enrichment_score: Math.round(enriched.enrichmentScore * 100),
         overall_confidence: Math.round(enriched.enrichmentScore * 100),
         enriched_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        raw_sources: updatedRaw,
       })
       .eq('id', id);
 
+    // ── Salva candidatos nas tabelas auxiliares ──────────────────────────────
     if (enriched.emails.length > 0) {
       await supabase.from('email_candidates').delete().eq('contact_id', id);
-      const emailRows = enriched.emails.map((e: any, i: number) => ({
-        contact_id: id,
-        email: e.email,
-        confidence: Math.round(e.confidence * 100),  // float→int 0-100
-        verified: e.verified,
-        catch_all: e.catchAll,
-        sources: e.sources,
-        is_primary: i === 0,
-      }));
-      await supabase.from('email_candidates').insert(emailRows);
+      await supabase.from('email_candidates').insert(
+        enriched.emails.map((e: any, i: number) => ({
+          contact_id: id,
+          email: e.email,
+          confidence: Math.round(e.confidence * 100),
+          verified: e.verified,
+          catch_all: e.catchAll,
+          sources: e.sources,
+          is_primary: i === 0,
+        }))
+      );
     }
 
     if (enriched.phones.length > 0) {
       await supabase.from('phone_candidates').delete().eq('contact_id', id);
-      const phoneRows = enriched.phones.map((p: any, i: number) => ({
-        contact_id: id,
-        phone: p.phone,
-        confidence: Math.round(p.confidence * 100),  // float→int 0-100
-        has_whatsapp: p.hasWhatsApp,
-        type: p.type,
-        sources: p.sources,
-        is_primary: i === 0,
-      }));
-      await supabase.from('phone_candidates').insert(phoneRows);
+      await supabase.from('phone_candidates').insert(
+        enriched.phones.map((p: any, i: number) => ({
+          contact_id: id,
+          phone: p.phone,
+          confidence: Math.round(p.confidence * 100),
+          has_whatsapp: p.hasWhatsApp,
+          type: p.type,
+          sources: p.sources,
+          is_primary: i === 0,
+        }))
+      );
     }
+
+    console.log(
+      `[Enrich] ${contact.name}: ` +
+      `${enriched.emails.length} emails, ` +
+      `${enriched.phones.length} phones ` +
+      `(${enriched.phones.filter((p: any) => p.hasWhatsApp).length} com WA)`
+    );
 
     return NextResponse.json({
       success: true,
       data: {
-        emails: enriched.emails,
-        phones: enriched.phones,
+        emails: updatedRaw.enrichedEmails,
+        phones: updatedRaw.enrichedPhones,
         enrichmentScore: enriched.enrichmentScore,
         primaryEmail: primaryEmail?.email,
         primaryPhone: primaryPhone?.phone,
-        whatsapp: whatsappPhone?.phone || primaryPhone?.phone || null,
-        hasWhatsApp: whatsappPhone?.hasWhatsApp || false,
+        whatsapp: whatsappPhone?.phone || null,
+        hasWhatsApp: !!whatsappPhone,
       },
     });
 

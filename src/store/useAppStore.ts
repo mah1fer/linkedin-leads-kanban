@@ -101,8 +101,28 @@ export const useAppStore = create<AppState>((set, get) => ({
                 nextAction: c.raw_sources?.next_action || '',
                 nextActionDate: c.raw_sources?.next_action_date || '',
                 linkedInUrl: c.linkedin_url || '',
-                phones: c.phone ? [c.phone] : [],
-                whatsapps: c.whatsapp ? [c.whatsapp] : [],
+                phones: (() => {
+                    // Prioriza os telefones enriquecidos (raw_sources.enrichedPhones)
+                    // com fallback para o campo phone principal
+                    const enriched = c.raw_sources?.enrichedPhones as any[] | undefined;
+                    if (enriched && enriched.length > 0) {
+                        return enriched.map((p: any) => p.phone).filter(Boolean);
+                    }
+                    return c.phone ? [c.phone] : [];
+                })(),
+                whatsapps: (() => {
+                    // Números com WhatsApp confirmado a partir dos dados enriquecidos
+                    const enriched = c.raw_sources?.enrichedPhones as any[] | undefined;
+                    if (enriched && enriched.length > 0) {
+                        const waPhones = enriched
+                            .filter((p: any) => p.hasWhatsApp)
+                            .map((p: any) => p.phone)
+                            .filter(Boolean);
+                        if (waPhones.length > 0) return waPhones;
+                    }
+                    // Fallback para o campo whatsapp principal
+                    return c.whatsapp ? [c.whatsapp] : [];
+                })(),
                 email: c.email || '',
                 links: c.raw_sources?.links || [],
                 notes: c.raw_sources?.notes || '',

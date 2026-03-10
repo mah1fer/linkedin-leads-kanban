@@ -201,17 +201,38 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
                         </div>
 
                         <div className="pt-2 flex flex-col gap-3">
-                            {lead.phones.map((phone, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm bg-background p-2 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <Phone className="w-4 h-4 text-muted-foreground" />
-                                        <a href={`tel:${phone}`} className="font-medium hover:text-primary transition-colors">{phone}</a>
+                            {lead.phones.map((phone, i) => {
+                                const hasWA = lead.whatsapps.includes(phone);
+                                return (
+                                    <div key={i} className="flex items-center justify-between text-sm bg-background p-2 rounded-xl">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {hasWA
+                                                ? <MessageSquare className="w-4 h-4 text-[#25D366] shrink-0" />
+                                                : <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            }
+                                            <div className="flex flex-col min-w-0">
+                                                <a
+                                                    href={hasWA
+                                                        ? `https://wa.me/${phone.replace(/\D/g, '')}`
+                                                        : `tel:${phone}`
+                                                    }
+                                                    target={hasWA ? '_blank' : undefined}
+                                                    rel="noreferrer"
+                                                    className="font-medium hover:text-primary transition-colors truncate"
+                                                >
+                                                    {phone}
+                                                </a>
+                                                {hasWA && (
+                                                    <span className="text-[10px] text-[#25D366] font-medium">WhatsApp</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" onClick={() => navigator.clipboard.writeText(phone)}>
+                                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </Button>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => navigator.clipboard.writeText(phone)}>
-                                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                                    </Button>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             <div className="flex items-center justify-between text-sm bg-background p-2 rounded-xl">
                                 <div className="flex items-center gap-3">
