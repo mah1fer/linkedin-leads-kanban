@@ -92,6 +92,6 @@ npm run lint     # verificar lint
 
 ## Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mah1fer/linkedin-leads-kanban&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,DATABASE_URL)
 
 Adicione as variáveis de ambiente no painel da Vercel antes de deployar.
