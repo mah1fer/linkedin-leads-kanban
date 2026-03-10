@@ -25,26 +25,59 @@ function getInitials(name) {
 function extractBasicInfo() {
     const name = (
         document.querySelector('h1.text-heading-xlarge')?.innerText ||
+        document.querySelector('h1[class*="heading"]')?.innerText ||
         document.querySelector('h1')?.innerText || ""
     ).trim().split('\n')[0];
 
     const role = (
-        document.querySelector('.text-body-medium.break-words')?.innerText || ""
+        document.querySelector('.text-body-medium.break-words')?.innerText ||
+        document.querySelector('.pv-text-details__left-panel .text-body-medium')?.innerText || ""
     ).trim().split('\n')[0];
 
     let company = "";
-    const expBtn = document.querySelector('button[aria-label*="rganização"]') ||
-                   document.querySelector('button[aria-label*="Empresa"]') ||
-                   document.querySelector('button[aria-label*="xperiência"]');
-    if (expBtn) {
-        company = (expBtn.getAttribute('aria-label') || "")
-            .replace(/experiência atual:?/i, '').replace(/empresa atual:?/i, '').trim();
+
+    // Strategy 1: button aria-label with current company (PT/EN)
+    const ariaLabels = [
+        'button[aria-label*="rganização"]', 'button[aria-label*="Empresa"]',
+        'button[aria-label*="xperiência"]', 'button[aria-label*="urrent company"]',
+        'button[aria-label*="mpresa atual"]'
+    ];
+    for (const sel of ariaLabels) {
+        const btn = document.querySelector(sel);
+        if (btn) {
+            company = (btn.getAttribute('aria-label') || "")
+                .replace(/experiência atual:?\s*/i, '').replace(/empresa atual:?\s*/i, '')
+                .replace(/current company:?\s*/i, '').trim();
+            if (company) break;
+        }
     }
+
+    // Strategy 2: First item in experience section — company span
     if (!company) {
-        const expSection = document.querySelector('#experience ~ .pvs-list, section[data-view-name*="experience"] .pvs-list');
-        const firstCompany = expSection?.querySelector('.t-14.t-black--light.t-normal span[aria-hidden="true"]');
-        company = firstCompany?.innerText?.trim() || "";
+        const expSelectors = [
+            '#experience ~ .pvs-list > li',
+            'section[data-view-name*="experience"] li.artdeco-list__item',
+            '[id*="experience"] ~ div li',
+        ];
+        for (const sel of expSelectors) {
+            const firstItem = document.querySelector(sel);
+            if (firstItem) {
+                const span = firstItem.querySelector(
+                    '.t-14.t-normal span[aria-hidden="true"], .t-bold span[aria-hidden="true"], [class*="subtitle"] span[aria-hidden="true"]'
+                );
+                company = span?.innerText?.trim() || "";
+                if (company) break;
+            }
+        }
     }
+
+    // Strategy 3: Parse "at CompanyName" or "na CompanyName" from headline
+    if (!company && role) {
+        const m = role.match(/\bat\s+(.+)$/i) || role.match(/\bna\s+(.+)$/i);
+        if (m) company = m[1].trim();
+    }
+
+    // Strategy 4: Right-panel info fallback
     if (!company) {
         company = document.querySelector('.pv-text-details__right-panel .text-body-small')?.innerText?.trim() || "";
     }
@@ -55,55 +88,88 @@ function extractBasicInfo() {
 
 function extractContacts() {
     const details = { email: "", phones: [], links: [] };
-    const contactItems = document.querySelectorAll([
-        '.pv-contact-info__contact-type',
-        '.artdeco-list__item',
-    ].join(', '));
 
-    contactItems.forEach(item => {
-        const emailLink = item.querySelector('a[href^="mailto:"]');
-        if (emailLink) {
-            details.email = emailLink.innerText.trim() || emailLink.href.replace('mailto:', '');
-        }
-        const headerText = (
-            item.querySelector('.pv-contact-info__header, h3, .t-bold')?.innerText || ""
-        ).toLowerCase();
-        if (headerText.includes('fone') || headerText.includes('phone') || headerText.includes('tel')) {
-            item.querySelectorAll('span.t-14, li').forEach(el => {
-                const phone = el.innerText?.trim();
-                if (phone && phone.length > 4 && !details.phones.includes(phone)) {
-                    details.phones.push(phone);
-                }
-            });
-        }
-        if (headerText.includes('site') || headerText.includes('profile') || headerText.includes('perfil')) {
-            item.querySelectorAll('a[href]').forEach(a => {
-                if (a.href && !a.href.includes('linkedin.com') && !details.links.includes(a.href)) {
-                    details.links.push(a.href);
-                }
-            });
+    // ── Email: search all mailto links on the page ──────────────────────────────
+    document.querySelectorAll('a[href^="mailto:"]').forEach(a => {
+        if (!details.email) {
+            details.email = (a.innerText.trim() || a.href.replace('mailto:', '')).trim();
         }
     });
+
+    // ── Phone: href="tel:..." is the most reliable signal ──────────────────────
+    document.querySelectorAll('a[href^="tel:"]').forEach(a => {
+        const phone = (a.innerText.trim() || a.href.replace('tel:', '')).trim();
+        if (phone && !details.phones.includes(phone)) details.phones.push(phone);
+    });
+
+    // ── Phone fallback: text-based scan inside contact sections ────────────────
+    if (details.phones.length === 0) {
+        const contactSections = document.querySelectorAll(
+            '.pv-contact-info__contact-type, .artdeco-list__item, [class*="contact-info"] li'
+        );
+        contactSections.forEach(item => {
+            const header = (item.querySelector('.pv-contact-info__header, h3, .t-bold')?.innerText || "").toLowerCase();
+            if (header.includes('fone') || header.includes('phone') || header.includes('tel') ||
+                header.includes('celular') || header.includes('mobile')) {
+                item.querySelectorAll('span, li').forEach(el => {
+                    const text = el.innerText?.trim();
+                    if (text && /^[\d\s\+\-\(\)]{7,20}$/.test(text) && !details.phones.includes(text)) {
+                        details.phones.push(text);
+                    }
+                });
+            }
+        });
+    }
+
+    // ── External links only from contact sections ───────────────────────────────
+    document.querySelectorAll(
+        '.pv-contact-info__contact-type a[href], .artdeco-list__item a[href], [class*="contact-info"] a[href]'
+    ).forEach(a => {
+        if (a.href && !a.href.includes('linkedin.com') &&
+            !a.href.startsWith('mailto:') && !a.href.startsWith('tel:') &&
+            a.href.startsWith('http') && !details.links.includes(a.href) &&
+            details.links.length < 5) {
+            details.links.push(a.href);
+        }
+    });
+
     return details;
 }
 
 function extractSearchResults() {
     const profiles = [];
+    const seen = new Set();
+
+    // Cast a wide net with multiple selectors LinkedIn has used over the years
     const resultItems = document.querySelectorAll([
         '.reusable-search__result-container',
         '.search-result__wrapper',
-        '[data-chameleon-result-urn]'
+        '[data-chameleon-result-urn]',
+        'li.artdeco-list__item[class*="result"]',
+        'li[class*="search-result"]',
     ].join(', '));
 
     resultItems.forEach(row => {
-        const nameEl = row.querySelector('.entity-result__title-text a span[aria-hidden="true"], .entity-result__title-text a, a.app-aware-link span[aria-hidden="true"]');
-        const linkEl = row.querySelector('.entity-result__title-text a, a.app-aware-link');
-        const subtitleEl = row.querySelector('.entity-result__primary-subtitle');
+        const nameEl = row.querySelector([
+            '.entity-result__title-text a span[aria-hidden="true"]',
+            '.entity-result__title-text a',
+            'a.app-aware-link span[aria-hidden="true"]',
+            'span[aria-hidden="true"]',
+        ].join(', '));
+        const linkEl = row.querySelector([
+            '.entity-result__title-text a',
+            'a.app-aware-link',
+            'a[href*="/in/"]',
+        ].join(', '));
+        const subtitleEl = row.querySelector(
+            '.entity-result__primary-subtitle, [class*="primary-subtitle"]'
+        );
 
         if (nameEl && linkEl) {
             let name = nameEl.innerText?.trim().split('\n')[0] || "";
-            let url = linkEl.href?.split('?')[0] || "";
-            if (url.includes('/in/') && name) {
+            let url = (linkEl.href || "").split('?')[0];
+            if (url.includes('/in/') && name && !seen.has(url)) {
+                seen.add(url);
                 profiles.push({ name, url, role: subtitleEl?.innerText?.trim() || "" });
             }
         }
