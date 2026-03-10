@@ -1,10 +1,12 @@
 "use client";
 
-import { LayoutDashboard, Users, SlidersHorizontal, Search } from "lucide-react";
+import { LayoutDashboard, Building2, SlidersHorizontal, Search } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { KanbanSettingsModal } from "@/components/kanban/KanbanSettingsModal";
 import { SearchModal } from "@/components/leads/SearchModal";
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -13,6 +15,7 @@ export function Sidebar() {
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const pathname = usePathname();
 
     return (
         <>
@@ -27,11 +30,35 @@ export function Sidebar() {
 
                 {/* Nav */}
                 <nav className="flex-1 px-4 space-y-2">
-                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                    <Link
+                        href="/"
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-2xl font-medium transition-colors",
+                            pathname === "/"
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        )}
+                    >
                         <LayoutDashboard className="w-5 h-5 opacity-80" />
                         <span>Dashboard</span>
-                    </div>
-                    
+                        {count > 0 && (
+                            <span className="ml-auto text-xs bg-white/20 rounded-full px-2 py-0.5">{count}</span>
+                        )}
+                    </Link>
+
+                    <Link
+                        href="/company"
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-2xl font-medium transition-colors",
+                            pathname === "/company"
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        )}
+                    >
+                        <Building2 className="w-5 h-5 opacity-80" />
+                        <span>Busca por Empresa</span>
+                    </Link>
+
                     <div
                         onClick={() => setIsSearchOpen(true)}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer group"
@@ -48,8 +75,6 @@ export function Sidebar() {
                         <span>Kanban Settings</span>
                     </div>
                 </nav>
-
-
             </aside>
 
             <KanbanSettingsModal

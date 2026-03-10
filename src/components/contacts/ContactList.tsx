@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   Table,
   TableBody,
@@ -19,6 +18,7 @@ import { Board } from '@/components/kanban/Board'
 import { ConfidenceBadge } from '@/components/enrich/ConfidenceBadge'
 import { EnrichButton } from '@/components/enrich/EnrichButton'
 import { EnrichProgress } from '@/components/enrich/EnrichProgress'
+import { AddLeadModal } from '@/components/leads/AddLeadModal'
 import { useAppStore } from '@/store/useAppStore'
 
 export function ContactList() {
@@ -27,28 +27,24 @@ export function ContactList() {
   const fetchLeads = useAppStore((state) => state.fetchLeads);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const setSearchQuery = useAppStore((state) => state.setSearchQuery);
+  const columns = useAppStore((state) => state.columns);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [filterStage, setFilterStage] = useState('')
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [enriching, setEnriching] = useState(false)
-
-  const supabase = createClient()
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
   useEffect(() => {
     fetchLeads()
-  }, [fetchLeads, searchQuery, filterStage])
+  }, [fetchLeads])
 
   const contacts = leads.filter(l => {
     if (filterStage && l.columnId !== filterStage) return false;
-    return true; // Search already handled by fetchLeads in the future? 
-    // Actually store doesn't handle search in fetchLeads yet. 
-    // Let's add search to the filter here for now.
-  }).filter(l => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return l.name.toLowerCase().includes(q) || 
-           l.company.toLowerCase().includes(q) || 
+    return l.name.toLowerCase().includes(q) ||
+           l.company.toLowerCase().includes(q) ||
            l.role.toLowerCase().includes(q);
   });
 
@@ -64,12 +60,6 @@ export function ContactList() {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     )
-  }
-
-  const getConfidenceColor = (score: number) => {
-    if (score >= 80) return 'bg-green-500/20 text-green-500 border-green-500/50'
-    if (score >= 50) return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
-    return 'bg-red-500/20 text-red-500 border-red-500/50'
   }
 
   const handleExport = (format: 'csv' | 'json') => {
@@ -107,16 +97,14 @@ export function ContactList() {
               <LayoutGrid className="w-4 h-4" /> Kanban
             </Button>
           </div>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setIsAddModalOpen(true)}>
             <UserPlus className="w-4 h-4" />
             Adicionar Manual
           </Button>
-          <div className="relative">
-            <Button variant="outline" className="gap-2" onClick={() => handleExport('csv')}>
-              <Download className="w-4 h-4" />
-              Exportar
-            </Button>
-          </div>
+          <Button variant="outline" className="gap-2" onClick={() => handleExport('csv')}>
+            <Download className="w-4 h-4" />
+            Exportar
+          </Button>
           <Button className="bg-primary hover:bg-primary/90 gap-2" onClick={handleEnrich} disabled={enriching || !selectedIds.length}>
             <Zap className="w-4 h-4" />
             {enriching ? 'Enriquecendo...' : `Enriquecer (${selectedIds.length})`}
@@ -127,8 +115,8 @@ export function ContactList() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-3 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar por nome, empresa ou cargo..." 
+          <Input
+            placeholder="Buscar por nome, empresa ou cargo..."
             className="pl-10 h-11 bg-background/50 border-border/50 focus:ring-primary"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -136,15 +124,15 @@ export function ContactList() {
         </div>
         <div className="relative">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <select 
+          <select
             className="w-full h-11 pl-10 pr-4 rounded-md border border-border/50 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
             value={filterStage}
             onChange={(e) => setFilterStage(e.target.value)}
           >
             <option value="">Todos os Estágios</option>
-            <option value="novo">Novo</option>
-            <option value="contactado">Contactado</option>
-            <option value="respondeu">Respondeu</option>
+            {columns.map(col => (
+              <option key={col.id} value={col.id}>{col.title}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -159,7 +147,7 @@ export function ContactList() {
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="w-12 text-center">
-                <Checkbox 
+                <Checkbox
                   checked={selectedIds.length === contacts.length && contacts.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
@@ -188,7 +176,7 @@ export function ContactList() {
               contacts.map((contact) => (
                 <TableRow key={contact.id} className="hover:bg-muted/20 transition-colors group">
                   <TableCell className="text-center">
-                    <Checkbox 
+                    <Checkbox
                       checked={selectedIds.includes(contact.id)}
                       onCheckedChange={() => toggleSelect(contact.id)}
                     />
@@ -198,18 +186,20 @@ export function ContactList() {
                       <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
                         {contact.name || 'Sem nome'}
                       </span>
-                      <a href={contact.linkedInUrl} target="_blank" className="text-xs text-muted-foreground hover:text-blue-400">
-                        LinkedIn Profile
-                      </a>
+                      {contact.linkedInUrl && (
+                        <a href={contact.linkedInUrl} target="_blank" className="text-xs text-muted-foreground hover:text-blue-400">
+                          LinkedIn Profile
+                        </a>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                          <span className="text-sm font-medium">{contact.company || 'N/A'}</span>
-                         <EnrichButton 
-                            contactId={contact.id} 
-                            currentStatus={contact.enrichmentStatus} 
+                         <EnrichButton
+                            contactId={contact.id}
+                            currentStatus={contact.enrichmentStatus}
                             onSuccess={fetchLeads}
                          />
                       </div>
@@ -243,15 +233,15 @@ export function ContactList() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <ConfidenceBadge 
+                    <ConfidenceBadge
                       label={
                         !contact.enrichmentScore ? 'ESPECULATIVO'
                         : contact.enrichmentScore >= 0.80 ? 'ALTO'
                         : contact.enrichmentScore >= 0.60 ? 'MÉDIO'
                         : contact.enrichmentScore >= 0.40 ? 'BAIXO'
                         : 'ESPECULATIVO'
-                      } 
-                      score={contact.enrichmentScore} 
+                      }
+                      score={contact.enrichmentScore}
                     />
                   </TableCell>
                 </TableRow>
@@ -261,6 +251,8 @@ export function ContactList() {
         </Table>
       </div>
       )}
+
+      <AddLeadModal isOpen={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
     </div>
   )
 }

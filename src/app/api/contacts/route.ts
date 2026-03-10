@@ -1,63 +1,41 @@
-import { sql } from '@/lib/db'
+import { createClient } from '@/lib/supabase/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  
+
   const stage = searchParams.get('stage')
   const search = searchParams.get('search')
   const minConfidence = searchParams.get('min_confidence')
   const tags = searchParams.get('tags')
   const enrichmentStatus = searchParams.get('enrichment_status')
 
-  let query = 'SELECT * FROM contacts WHERE 1=1'
-  const params: any[] = []
+  const supabase = createClient()
+  let query = supabase.from('contacts').select('*').order('created_at', { ascending: false })
 
-  if (stage) {
-    params.push(stage)
-    query += ` AND stage = $${params.length}`
-  }
-  if (enrichmentStatus) {
-    params.push(enrichmentStatus)
-    query += ` AND enrichment_status = $${params.length}`
-  }
-  if (minConfidence) {
-    params.push(parseInt(minConfidence))
-    query += ` AND overall_confidence >= $${params.length}`
-  }
-  if (tags) {
-    params.push(tags.split(','))
-    query += ` AND tags @> $${params.length}`
-  }
-  
-  if (search) {
-    params.push(`%${search}%`)
-    const p = `$${params.length}`
-    query += ` AND (name ILIKE ${p} OR company ILIKE ${p} OR title ILIKE ${p})`
-  }
+  if (stage) query = query.eq('stage', stage)
+  if (enrichmentStatus) query = query.eq('enrichment_status', enrichmentStatus)
+  if (minConfidence) query = query.gte('overall_confidence', parseInt(minConfidence))
+  if (tags) query = query.contains('tags', tags.split(','))
+  if (search) query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,title.ilike.%${search}%`)
 
-  query += ' ORDER BY created_at DESC'
+  const { data, error } = await query
 
-  try {
-    const data = await sql.unsafe(query, params)
-    return NextResponse.json(data)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { name, title, company, company_url, linkedin_url, tags, stage } = body
 
-  try {
-    const data = await sql`
-      INSERT INTO contacts (name, title, company, company_url, linkedin_url, tags, stage)
-      VALUES (${name}, ${title}, ${company}, ${company_url}, ${linkedin_url}, ${tags || []}, ${stage || 'novo'})
-      RETURNING *
-    `
-    return NextResponse.json(data[0])
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('contacts')
+    .insert([{ name, title, company, company_url, linkedin_url, tags: tags || [], stage: stage || 'novo' }])
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
 }
