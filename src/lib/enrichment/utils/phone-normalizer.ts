@@ -1,3 +1,25 @@
+// Extrai possíveis números de telefone de um texto livre
+export function extractPhones(text: string): string[] {
+  const phones = new Set<string>();
+
+  // Padrão 1: com código do país +55
+  const withCountry = text.match(/\+55[\s\-\.]?\(?\d{2}\)?[\s\-\.]?\d[\s\-\.]?\d{3,4}[\s\-\.]?\d{4}/g) || [];
+  // Padrão 2: com DDD entre parênteses (11) 98765-4321
+  const withParens = text.match(/\(\d{2}\)\s?9?\s?\d{4}[\s\-\.]?\d{4}/g) || [];
+  // Padrão 3: DDD seguido de celular 11 98765-4321 ou 11987654321
+  const withDDD = text.match(/\b[1-9]\d[\s\-\.]9\d{3,4}[\s\-\.]?\d{4}\b/g) || [];
+
+  for (const raw of [...withCountry, ...withParens, ...withDDD]) {
+    const digits = raw.replace(/\D/g, '');
+    // Válido: 10 dígitos (fixo c/ DDD) ou 11 (celular c/ DDD) ou 12-13 (c/ código país)
+    if (digits.length >= 10 && digits.length <= 13) {
+      phones.add(raw.trim());
+    }
+  }
+
+  return [...phones];
+}
+
 // Normaliza telefone brasileiro para E.164
 export function normalizePhone(phone: string): string {
   if (!phone) return '';

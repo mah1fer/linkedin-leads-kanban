@@ -1,5 +1,6 @@
-import type { EnrichmentPlugin, LeadInput, EnrichmentResult, EmailCandidate } from '../types';
+import type { EnrichmentPlugin, LeadInput, EnrichmentResult, EmailCandidate, PhoneCandidate } from '../types';
 import { extractEmails } from '../utils/email-extractor';
+import { extractPhones, normalizePhone, isMobileBR } from '../utils/phone-normalizer';
 
 export interface GoogleDorkSearchResult {
   social_profiles: { url: string; name?: string }[];
@@ -112,6 +113,8 @@ export class GoogleDorkPlugin implements EnrichmentPlugin {
 
   async run(input: LeadInput): Promise<EnrichmentResult> {
     const emails: EmailCandidate[] = [];
+    const phones: PhoneCandidate[] = [];
+    const seenPhones = new Set<string>();
     const queries = this.buildQueries(input.name, input.company, input.domain);
 
     // Executa no máximo 2 queries para evitar bloqueio no Vercel
@@ -121,9 +124,10 @@ export class GoogleDorkPlugin implements EnrichmentPlugin {
       try {
         await sleep(randomBetween(1500, 3500)); // anti-detecção
         const html = await this.fetchPage(buildGoogleUrl(query));
-        const found = extractEmails(html);
 
-        found.forEach(email => {
+        // Emails
+        const foundEmails = extractEmails(html);
+        foundEmails.forEach(email => {
           emails.push({
             email,
             confidence: 0.40,
@@ -133,11 +137,27 @@ export class GoogleDorkPlugin implements EnrichmentPlugin {
             sources: ['google_dork'],
           });
         });
+
+        // Telefones
+        const foundPhones = extractPhones(html);
+        foundPhones.forEach(raw => {
+          const normalized = normalizePhone(raw);
+          if (!normalized || seenPhones.has(normalized)) return;
+          seenPhones.add(normalized);
+          const isMobile = isMobileBR(normalized);
+          phones.push({
+            phone: normalized,
+            confidence: isMobile ? 0.40 : 0.30,
+            hasWhatsApp: false,
+            type: isMobile ? 'mobile' : 'unknown',
+            sources: ['google_dork'],
+          });
+        });
       } catch (err) {
         console.warn(`[GoogleDork] Query falhou: ${query}`, err);
       }
     }
 
-    return { emails, phones: [], source: 'google_dork', rawData: {} };
+    return { emails, phones, source: 'google_dork', rawData: {} };
   }
 }

@@ -27,7 +27,18 @@ export async function POST(
       .update({ enrichment_status: 'enriching', updated_at: new Date().toISOString() })
       .eq('id', id);
 
+    // Extrai domínio do email existente (se houver)
     const domain = contact.email ? contact.email.split('@')[1] : undefined;
+
+    // Extrai URLs pessoais do campo raw_sources (links adicionados ao perfil)
+    let personalSiteUrls: string[] = [];
+    try {
+      const raw = contact.raw_sources || {};
+      const links: any[] = raw.links || [];
+      personalSiteUrls = links
+        .map((l: any) => l.url || l)
+        .filter((url: string) => typeof url === 'string' && url.startsWith('http') && !url.includes('linkedin.com'));
+    } catch { /* ignora erro de parsing */ }
 
     const orchestrator = new EnrichmentOrchestrator();
     const enriched = await orchestrator.enrich({
@@ -37,18 +48,29 @@ export async function POST(
       title: contact.title,
       linkedinUrl: contact.linkedin_url,
       domain,
+      personalSiteUrls,
     });
 
     const primaryEmail = enriched.emails[0];
-    const primaryPhone = enriched.phones.find((p: any) => p.hasWhatsApp) || enriched.phones[0];
+    // Prioriza: móvel com WhatsApp → qualquer móvel → qualquer telefone
+    const primaryPhone =
+      enriched.phones.find((p: any) => p.hasWhatsApp && p.type === 'mobile') ||
+      enriched.phones.find((p: any) => p.type === 'mobile') ||
+      enriched.phones[0];
+
+    const whatsappPhone = enriched.phones.find((p: any) => p.hasWhatsApp);
 
     await supabase
       .from('contacts')
       .update({
         email: primaryEmail?.email || contact.email,
         phone: primaryPhone?.phone || contact.phone,
-        email_confidence: primaryEmail?.confidence || 0,
-        phone_confidence: primaryPhone?.confidence || 0,
+        whatsapp: whatsappPhone?.phone || primaryPhone?.phone || contact.whatsapp || null,
+        whatsapp_source: whatsappPhone
+          ? whatsappPhone.sources.join(',')
+          : (primaryPhone ? primaryPhone.sources.join(',') : null),
+        email_confidence: Math.round((primaryEmail?.confidence || 0) * 100),
+        phone_confidence: Math.round((primaryPhone?.confidence || 0) * 100),
         enrichment_status: 'completed',
         enrichment_score: enriched.enrichmentScore,
         enriched_at: new Date().toISOString(),
@@ -92,7 +114,8 @@ export async function POST(
         enrichmentScore: enriched.enrichmentScore,
         primaryEmail: primaryEmail?.email,
         primaryPhone: primaryPhone?.phone,
-        hasWhatsApp: primaryPhone?.hasWhatsApp || false,
+        whatsapp: whatsappPhone?.phone || primaryPhone?.phone || null,
+        hasWhatsApp: whatsappPhone?.hasWhatsApp || false,
       },
     });
 

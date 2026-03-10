@@ -5,6 +5,7 @@ export interface LeadInput {
   title?: string;
   linkedinUrl?: string;
   domain?: string;
+  personalSiteUrls?: string[];   // sites pessoais/portfólio do lead (para web scraping)
   phoneCandidates?: PhoneCandidate[];
 }
 
@@ -32,7 +33,9 @@ export type PluginSource =
   | 'cnpj'
   | 'whatsapp_check'
   | 'profile_direct'
-  | 'permutation';
+  | 'permutation'
+  | 'phone_osint'
+  | 'web_scraper';
 
 export interface EnrichmentResult {
   emails: EmailCandidate[];

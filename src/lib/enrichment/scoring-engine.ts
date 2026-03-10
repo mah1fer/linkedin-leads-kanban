@@ -4,10 +4,12 @@ import type { EmailCandidate, ConfidenceLabel } from './types';
 const BASE_SCORES: Record<string, number> = {
   profile_direct: 0.90,  // encontrado direto no perfil LinkedIn
   smtp_verified:  0.80,  // SMTP RCPT TO confirmado
-  cnpj:           0.70,  // email público do CNPJ
-  whatsapp_check: 0.85,  // número tem WA ativo
+  cnpj:           0.70,  // email/telefone público do CNPJ
+  whatsapp_check: 0.85,  // número confirmado como móvel (alta chance de ter WA)
+  web_scraper:    0.60,  // encontrado em site da empresa ou pessoal
   domain_pattern: 0.65,  // bate com padrão da empresa
   google_dork:    0.40,  // encontrado via busca pública
+  phone_osint:    0.45,  // telefone via OSINT (DDG/Bing/GitHub)
   permutation:    0.25,  // apenas gerado, não verificado
 };
 
