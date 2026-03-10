@@ -94,11 +94,50 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
         };
     }, [isExtensionReady]);
 
+    // ─── Helper: extract name from LinkedIn URL slug ──────────────────────────
+    const nameFromSlug = (url: string): string => {
+        const slug = url.split("/in/")[1]?.split("?")[0]?.split("/")[0] ?? "";
+        if (!slug) return "Novo Lead";
+        return slug
+            .split("-")
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+    };
+
     // ─── Direct Link Import ───────────────────────────────────────────────────
     const handleDirectImport = () => {
         const url = linkQuery.trim();
         if (!url || !url.includes("linkedin.com/in/")) return;
 
+        const targetColumn = columns.length > 0 ? columns[0].id : defaultColumns[0].id;
+
+        // ── Fallback: no extension → create lead from URL directly ──
+        if (!isExtensionReady) {
+            addLead({
+                name: nameFromSlug(url),
+                role: "",
+                company: "",
+                linkedInUrl: url,
+                priority: "Alta",
+                tags: ["Importação Direta"],
+                nextAction: "Qualificar Lead",
+                nextActionDate: new Date().toISOString(),
+                notes: "Importado via URL. Complete o perfil manualmente.",
+                phones: [],
+                whatsapps: [],
+                email: "",
+                links: [],
+                history: [],
+                columnId: targetColumn,
+            });
+            setImportStatus("success");
+            setLinkQuery("");
+            setTimeout(() => setImportStatus("idle"), 3000);
+            return;
+        }
+
+        // ── Extension flow ────────────────────────────────────────────
         setIsImporting(true);
         setImportStatus("idle");
         const id = Date.now().toString();
@@ -118,9 +157,8 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
                 const lead = event.data.payload;
                 if (!lead) { setImportStatus("error"); return; }
 
-                const targetColumn = columns.length > 0 ? columns[0].id : defaultColumns[0].id;
                 addLead({
-                    name: lead.name || "Sem Nome",
+                    name: lead.name || nameFromSlug(url),
                     role: lead.role || "",
                     company: lead.company || "",
                     linkedInUrl: url,
@@ -135,16 +173,15 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
                     links: (lead.links || []).map((u: string) => ({
                         id: Math.random().toString(36).substr(2, 9),
                         label: "Website",
-                        url: u
+                        url: u,
                     })),
                     history: [],
-                    columnId: targetColumn
+                    columnId: targetColumn,
                 });
                 setImportStatus("success");
                 setLinkQuery("");
                 setTimeout(() => setImportStatus("idle"), 3000);
             }
-            // Catch extension errors immediately
             if (event.data?.type === "KANBAN_EXT_ERROR" && event.data.id === id) {
                 clearTimeout(timeout);
                 window.removeEventListener("message", listener);
@@ -157,7 +194,7 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
         window.postMessage({
             type: "KANBAN_EXT_REQUEST",
             id,
-            payload: { action: "IMPORT_BY_LINK", url }
+            payload: { action: "IMPORT_BY_LINK", url },
         }, "*");
     };
 
@@ -340,7 +377,7 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
                                 placeholder="https://linkedin.com/in/nome-do-perfil"
                                 value={linkQuery}
                                 onChange={(e) => setLinkQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && handleDirectImport()}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleDirectImport(); } }}
                                 className="h-10 rounded-xl bg-background"
                                 disabled={isImporting}
                             />
@@ -352,6 +389,12 @@ export function SearchModal({ isOpen, onOpenChange }: SearchModalProps) {
                                 {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Importar"}
                             </Button>
                         </div>
+
+                        {!isExtensionReady && linkQuery.includes("linkedin.com/in/") && (
+                            <p className="text-[11px] text-muted-foreground px-1">
+                                Sem extensão: o lead será criado com nome extraído da URL. Preencha os detalhes depois.
+                            </p>
+                        )}
 
                         {isImporting && (
                             <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10 text-sm text-muted-foreground">
