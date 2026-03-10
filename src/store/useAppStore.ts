@@ -104,7 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 phones: c.phone ? [c.phone] : [],
                 whatsapps: c.whatsapp ? [c.whatsapp] : [],
                 email: c.email || '',
-                links: [], // Could be mapped from raw_sources if needed
+                links: c.raw_sources?.links || [],
                 notes: c.raw_sources?.notes || '',
                 history: [],
                 columnId: c.stage || 'novo',
@@ -166,6 +166,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (updates.nextAction !== undefined) { newRawSources.next_action = updates.nextAction; hasRawUpdate = true; }
         if (updates.nextActionDate !== undefined) { newRawSources.next_action_date = updates.nextActionDate; hasRawUpdate = true; }
         if (updates.priority !== undefined) { newRawSources.priority = updates.priority; hasRawUpdate = true; }
+        if (updates.links !== undefined) { newRawSources.links = updates.links; hasRawUpdate = true; }
 
         if (hasRawUpdate) supabaseUpdate.raw_sources = newRawSources;
 

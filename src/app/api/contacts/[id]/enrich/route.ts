@@ -72,7 +72,9 @@ export async function POST(
         email_confidence: Math.round((primaryEmail?.confidence || 0) * 100),
         phone_confidence: Math.round((primaryPhone?.confidence || 0) * 100),
         enrichment_status: 'completed',
-        enrichment_score: enriched.enrichmentScore,
+        // Armazena como int 0-100 para bater com o schema
+        enrichment_score: Math.round(enriched.enrichmentScore * 100),
+        overall_confidence: Math.round(enriched.enrichmentScore * 100),
         enriched_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -83,7 +85,7 @@ export async function POST(
       const emailRows = enriched.emails.map((e: any, i: number) => ({
         contact_id: id,
         email: e.email,
-        confidence: e.confidence,
+        confidence: Math.round(e.confidence * 100),  // float→int 0-100
         verified: e.verified,
         catch_all: e.catchAll,
         sources: e.sources,
@@ -97,7 +99,7 @@ export async function POST(
       const phoneRows = enriched.phones.map((p: any, i: number) => ({
         contact_id: id,
         phone: p.phone,
-        confidence: p.confidence,
+        confidence: Math.round(p.confidence * 100),  // float→int 0-100
         has_whatsapp: p.hasWhatsApp,
         type: p.type,
         sources: p.sources,

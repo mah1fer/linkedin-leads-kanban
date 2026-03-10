@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Zap } from 'lucide-react';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import type { ConfidenceLabel } from '@/lib/enrichment/types';
+import { useAppStore } from '@/store/useAppStore';
 
 interface EnrichResult {
   primaryEmail?: string;
   primaryPhone?: string;
+  whatsapp?: string;
   hasWhatsApp: boolean;
   enrichmentScore: number;
 }
@@ -23,6 +25,7 @@ export function EnrichButton({ contactId, currentStatus, onSuccess }: EnrichButt
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EnrichResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fetchLeads = useAppStore(state => state.fetchLeads);
 
   const isEnriched = currentStatus === 'completed';
 
@@ -40,7 +43,10 @@ export function EnrichButton({ contactId, currentStatus, onSuccess }: EnrichButt
       const data = await res.json();
       setResult(data.data);
       onSuccess?.(data.data);
-    } catch (err) {
+
+      // Atualiza o store → drawer e cards refletem os novos dados
+      await fetchLeads();
+    } catch {
       setError('Erro ao enriquecer. Tente novamente.');
     } finally {
       setLoading(false);
@@ -78,9 +84,9 @@ export function EnrichButton({ contactId, currentStatus, onSuccess }: EnrichButt
           {result.primaryEmail && (
             <span className="text-gray-600">📧 {result.primaryEmail}</span>
           )}
-          {result.primaryPhone && (
+          {(result.whatsapp || result.primaryPhone) && (
             <span className="text-gray-600">
-              {result.hasWhatsApp ? '💬 WA:' : '📞'} {result.primaryPhone}
+              {result.hasWhatsApp ? '💬 WA:' : '📞'} {result.whatsapp || result.primaryPhone}
             </span>
           )}
         </div>
