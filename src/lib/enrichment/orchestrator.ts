@@ -6,6 +6,8 @@ import { SmtpVerifierPlugin } from './plugins/smtp-verifier';
 import { WhatsAppCheckerPlugin } from './plugins/whatsapp-checker';
 import { EmailPermutationPlugin } from './plugins/email-permutation';
 import { WebsiteScraperPlugin } from './plugins/website-scraper';
+import { ApolloPlugin } from './plugins/apollo-plugin';
+import { PhoneDorkPlugin } from './plugins/phone-dork';
 import { deduplicateEmails, deduplicatePhones } from './utils/deduplicator';
 import { calculateEmailConfidence, getConfidenceLabel } from './scoring-engine';
 
@@ -14,25 +16,29 @@ export class EnrichmentOrchestrator {
     console.log(`[Enrichment] Iniciando para: ${input.name} @ ${input.company}`);
 
     // FASE 1: Plugins paralelos de descoberta
+    // - apollo: email + telefone direto via Apollo.io (alta confiança, 50 grátis/mês)
     // - google_dork: busca emails no Google
     // - domain_intel: padrão de email via Hunter.io (opcional)
     // - cnpj: dados da Receita Federal
     // - permutation: gera e verifica candidatos de email por padrão (sem API)
     // - website_scraper: raspa site da empresa por emails/telefones (sem API)
-    const [dorkResult, domainResult, cnpjResult, permutationResult, scraperResult] =
+    // - phone_dork: busca telefone/WhatsApp pessoal via DuckDuckGo (sem API)
+    const [apolloResult, dorkResult, domainResult, cnpjResult, permutationResult, scraperResult, phoneDorkResult] =
       await Promise.allSettled([
+        new ApolloPlugin().run(input),
         new GoogleDorkPlugin().run(input),
         new DomainIntelPlugin().run(input),
         new CnpjPlugin().run(input),
         new EmailPermutationPlugin().run(input),
         new WebsiteScraperPlugin().run(input),
+        new PhoneDorkPlugin().run(input),
       ]);
 
     // Consolida todos os emails e phones encontrados
     const allEmails: EmailCandidate[] = [];
     const allPhones: any[] = [];
 
-    for (const result of [dorkResult, domainResult, cnpjResult, permutationResult, scraperResult]) {
+    for (const result of [apolloResult, dorkResult, domainResult, cnpjResult, permutationResult, scraperResult, phoneDorkResult]) {
       if (result.status === 'fulfilled') {
         allEmails.push(...result.value.emails);
         allPhones.push(...result.value.phones);

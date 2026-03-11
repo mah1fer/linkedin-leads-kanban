@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Lead, LinkItem } from "@/types";
-import { Linkedin, Phone, MessageSquare, ExternalLink, Copy, X, Mail, Github, Twitter, Link as LinkIcon, Plus, Trash2 } from "lucide-react";
+import { Linkedin, Phone, MessageSquare, ExternalLink, Copy, X, Mail, Github, Twitter, Link as LinkIcon, Plus, Trash2, Building2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 interface LeadDrawerProps {
@@ -127,14 +127,18 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
                                 LinkedIn
                             </a>
                         </Button>
-                        {lead.whatsapps.length > 0 && (
-                            <Button className="flex-1 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white" asChild>
-                                <a href={`https://wa.me/${lead.whatsapps[0].replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
-                                    <MessageSquare className="w-4 h-4 mr-2" />
-                                    WhatsApp
-                                </a>
-                            </Button>
-                        )}
+                        {lead.whatsapps.length > 0 && (() => {
+                            const digits = lead.whatsapps[0].replace(/\D/g, '');
+                            const waNumber = digits.startsWith('55') ? digits : `55${digits}`;
+                            return (
+                                <Button className="flex-1 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white" asChild>
+                                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer">
+                                        <MessageSquare className="w-4 h-4 mr-2" />
+                                        WhatsApp
+                                    </a>
+                                </Button>
+                            );
+                        })()}
                         {email && (
                             <Button className="flex-1 rounded-2xl bg-primary hover:bg-primary/90 text-white" asChild>
                                 <a href={`mailto:${email}`} target="_blank" rel="noreferrer">
@@ -201,11 +205,37 @@ export function LeadDrawer({ lead, isOpen, onOpenChange, onSave, onDelete }: Lea
                         </div>
 
                         <div className="pt-2 flex flex-col gap-3">
-                            {lead.phones.map((phone, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm bg-background p-2 rounded-xl">
+                            {lead.whatsapps.map((phone, i) => {
+                                const digits = phone.replace(/\D/g, '');
+                                const waNumber = digits.startsWith('55') ? digits : `55${digits}`;
+                                return (
+                                    <div key={`wa-${i}`} className="flex items-center justify-between text-sm bg-[#25D366]/10 border border-[#25D366]/20 p-2 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <MessageSquare className="w-4 h-4 text-[#25D366]" />
+                                            <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="font-medium hover:text-[#25D366] transition-colors">
+                                                {phone}
+                                            </a>
+                                            <span className="text-[10px] text-[#25D366] font-semibold uppercase tracking-wide">WhatsApp</span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" asChild>
+                                                <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer">
+                                                    <ExternalLink className="w-3.5 h-3.5 text-[#25D366]" />
+                                                </a>
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => navigator.clipboard.writeText(phone)}>
+                                                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {lead.phones.filter(p => !lead.whatsapps.includes(p)).map((phone, i) => (
+                                <div key={`ph-${i}`} className="flex items-center justify-between text-sm bg-background p-2 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <Phone className="w-4 h-4 text-muted-foreground" />
                                         <a href={`tel:${phone}`} className="font-medium hover:text-primary transition-colors">{phone}</a>
+                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Fixo/Empresa</span>
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => navigator.clipboard.writeText(phone)}>
                                         <Copy className="w-3.5 h-3.5 text-muted-foreground" />

@@ -33,7 +33,9 @@ export type PluginSource =
   | 'whatsapp_check'
   | 'profile_direct'
   | 'permutation'
-  | 'website_scraper';
+  | 'website_scraper'
+  | 'apollo'
+  | 'phone_dork';
 
 export interface EnrichmentResult {
   emails: EmailCandidate[];
